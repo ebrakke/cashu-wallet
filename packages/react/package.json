@@ -1,0 +1,37 @@
+{
+  "name": "@cashu-wallet/react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/react.js",
+  "module": "./dist/react.cjs",
+  "exports": {
+    ".": {
+      "import": "./dist/react.js",
+      "require": "./dist/react.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "typings": "./dist/index.d.ts",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@cashu-wallet/core": "workspace:*",
+    "observable-hooks": "^4.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.64",
+    "react": "^18.2.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.5",
+    "vite-plugin-dts": "^3.7.3"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0",
+    "rxjs": "^7.8.1"
+  }
+}

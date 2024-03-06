@@ -33,11 +33,11 @@ import {
 
 type ReceiveEcash = { type: "ecash"; token: string };
 type ReceiveLightning = { type: "lightning"; amount: number };
-type ReceivePayload = ReceiveEcash | ReceiveLightning;
+export type ReceivePayload = ReceiveEcash | ReceiveLightning;
 
 type SendEcash = { type: "ecash"; amount: number };
 type SendLightning = { type: "lightning"; amount: number; pr: string };
-type SendPayload = SendEcash | SendLightning;
+export type SendPayload = SendEcash | SendLightning;
 
 interface IWallet {
   state$: Observable<WalletState>;
