@@ -72,6 +72,9 @@ export class Wallet implements IWallet {
     }
   }
 
+  /**
+   * Returns a snapshot of the current wallet state
+   */
   get state() {
     return {
       balance: this.#balance,
@@ -80,6 +83,9 @@ export class Wallet implements IWallet {
     };
   }
 
+  /**
+   * Returns an observable of the wallet state
+   */
   get state$() {
     return combineLatest([this.#proofs$$, this.#transactions$$]).pipe(
       map(([proofs, transactions]) => ({
@@ -90,6 +96,12 @@ export class Wallet implements IWallet {
     );
   }
 
+  /**
+   * Function that will add funds to the wallet. Receive can either be in the form of an ecash token
+   * or requesting a lightning invoice. The latter is done by "minting" the tokens.
+   * @param payload
+   * @returns void if receiving ecash, or a string if receiving lightning
+   */
   async receive(payload: ReceivePayload) {
     if (payload.type === "ecash") {
       await this.#receiveEcash(payload.token);
@@ -98,6 +110,12 @@ export class Wallet implements IWallet {
     }
   }
 
+  /**
+   * Function that will send funds from the wallet. Sending can either be in the form of an ecash token
+   * or paying a lightning invoice.
+   * @param payload
+   * @returns void if sending lightning, or the encoded token if sending ecash
+   */
   async send(payload: SendPayload) {
     if (payload.type === "ecash") {
       return await this.#sendEcash(payload.amount);
@@ -106,12 +124,28 @@ export class Wallet implements IWallet {
     }
   }
 
+  getEncodedToken(token: Token): string {
+    return getEncodedToken(token);
+  }
+
+  /**
+   * Takes an encoded token and attempts to melt it with the mint. Updates the wallet state with new proofs
+   * TODO: Handle tokens from other mints.
+   * @param token
+   */
   async #receiveEcash(token: string): Promise<void> {
     const response = await this.#wallet.receive(token);
     const proofs = response.token.token.map((t) => t.proofs).flat();
     this.#proofs$$.next([...this.#proofs, ...proofs]);
   }
 
+  /**
+   * Attempts to mint tokens for the specified amount. This will return a lightning invoice
+   * which can be paid to fund the wallet. Updates the wallet state with the new transaction.
+   * Kicks off a worker to check if the transaction has been paid.
+   * @param amount
+   * @returns
+   */
   async #receiveLightning(amount: number): Promise<string> {
     const response = await this.#wallet.requestMint(amount);
     if (response.error) {
@@ -134,6 +168,12 @@ export class Wallet implements IWallet {
     return response.pr;
   }
 
+  /**
+   * Create an encoded token for the specified amount to send.
+   * Kicks off a worker to check if the transaction has been spent.
+   * @param amount
+   * @returns
+   */
   async #sendEcash(amount: number): Promise<string> {
     const response = await this.#wallet.send(amount, this.#proofs);
     this.#proofs$$.next(response.returnChange);
@@ -154,6 +194,10 @@ export class Wallet implements IWallet {
     return encodedToken;
   }
 
+  /**
+   * Attempts to pay a lightning invoice with the existing wallet proofs. Updates the wallet state with the new transaction.
+   * @param pr
+   */
   async #sendLightning(pr: string): Promise<void> {
     const fee = await this.#wallet.getFee(pr);
     const decoded = decode(pr);
@@ -170,10 +214,12 @@ export class Wallet implements IWallet {
     this.#proofs$$.next(returnChange);
   }
 
-  getEncodedToken(token: Token): string {
-    return getEncodedToken(token);
-  }
-
+  /**
+   * Checks with the mint to see if a lightning transaction has been paid (i.e. the tokens have been minted).
+   * When the transaction is paid, the wallet state is updated with the new proofs and the transaction is marked as paid.
+   * @param transaction
+   * @returns new proofs to add to the wallet
+   */
   #createLightningWorker$({ amount, hash }: LightningTransaction) {
     return interval(this.WORKER_INTERVAL).pipe(
       switchMap(() => this.#wallet.requestTokens(amount, hash)),
@@ -183,6 +229,11 @@ export class Wallet implements IWallet {
     );
   }
 
+  /**
+   * When a token is sent, a worker is created to check if the token has been spent.
+   * @param param0
+   * @returns
+   */
   #createEcashWorker$({ token }: EcashTransaction): Observable<boolean> {
     const parsedToken = getDecodedToken(token);
     const proofs = parsedToken.token.map((t) => t.proofs).flat();
@@ -195,6 +246,11 @@ export class Wallet implements IWallet {
     );
   }
 
+  /**
+   * Updates the wallet state with the new proofs and marks the transaction as paid.
+   * @param invoice
+   * @param proofs
+   */
   #handleLightningTransactionPaid(
     invoice: LightningTransaction,
     proofs: Proof[]
@@ -208,6 +264,11 @@ export class Wallet implements IWallet {
     });
   }
 
+  /**
+   * Updates the wallet state with paid transaction
+   * @param param0
+   * @returns
+   */
   #handleTokenPaid({ token }: EcashTransaction) {
     const transaction = this.#transactions[token];
     if (!transaction) return;
@@ -217,6 +278,9 @@ export class Wallet implements IWallet {
     });
   }
 
+  /**
+   * If a storage provider is provided, everytime the wallet state changes, it will be written to storage
+   */
   #setupPersistence() {
     if (this.storage) {
       this.state$.subscribe((state) => {
@@ -225,6 +289,9 @@ export class Wallet implements IWallet {
     }
   }
 
+  /**
+   * If a storage provider is provided, the wallet state will be initialized from storage
+   */
   #loadFromStorage() {
     if (this.storage) {
       const state = this.storage.get(this.STORAGE_KEY);
@@ -235,6 +302,10 @@ export class Wallet implements IWallet {
     }
   }
 
+  /**
+   * When the wallet first loads, if there are pending transactions in storage, it will re-create the workers
+   * to check if the transactions have been paid.
+   */
   #initializeWorkers() {
     const pendingLightningTransactions = Object.values(this.#transactions)
       .filter(isLightningTransaction)
@@ -253,6 +324,8 @@ export class Wallet implements IWallet {
       this.#createEcashWorker$(t).subscribe(() => this.#handleTokenPaid(t));
     });
   }
+
+  // Internal getters
 
   get #proofs() {
     return this.#proofs$$.getValue();
