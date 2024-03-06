@@ -1,5 +1,5 @@
 import {
-  Observable,
+  type Observable,
   interval,
   switchMap,
   map,
@@ -14,24 +14,22 @@ import {
   CashuMint,
   CashuWallet,
   type Proof,
+  type Token,
   getEncodedToken,
-  Token,
   getDecodedToken,
 } from "@cashu/cashu-ts";
 import { decode } from "@gandlaf21/bolt11-decode";
 import type { StorageProvider } from "./storage";
+import type { WalletState } from "./state";
 import {
+  type EcashTransaction,
+  type LightningTransaction,
+  type Transaction,
   createEcashTransaction,
   createLightningTransaction,
   isEcashTransaction,
   isLightningTransaction,
 } from "./transaction";
-
-export interface WalletState {
-  balance: number;
-  proofs: Proof[];
-  transactions: Record<string, Transaction>;
-}
 
 type ReceiveEcash = { type: "ecash"; token: string };
 type ReceiveLightning = { type: "lightning"; amount: number };
@@ -40,24 +38,6 @@ type ReceivePayload = ReceiveEcash | ReceiveLightning;
 type SendEcash = { type: "ecash"; amount: number };
 type SendLightning = { type: "lightning"; amount: number; pr: string };
 type SendPayload = SendEcash | SendLightning;
-
-type EcashTransaction = {
-  type: "ecash";
-  token: string;
-  amount: number;
-  date: Date;
-  isPaid: boolean;
-};
-type LightningTransaction = {
-  type: "lightning";
-  pr: string;
-  amount: number;
-  hash: string;
-  date: Date;
-  isPaid: boolean;
-};
-
-type Transaction = EcashTransaction | LightningTransaction;
 
 interface IWallet {
   state$: Observable<WalletState>;

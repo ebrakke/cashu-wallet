@@ -1,4 +1,4 @@
-import { WalletState } from "./wallet";
+import type { WalletState } from "./state";
 
 export interface StorageProvider {
   get(key: string): WalletState;

@@ -1,11 +1,11 @@
-type EcashTransaction = {
+export type EcashTransaction = {
   type: "ecash";
   token: string;
   amount: number;
   date: Date;
   isPaid: boolean;
 };
-type LightningTransaction = {
+export type LightningTransaction = {
   type: "lightning";
   pr: string;
   amount: number;
