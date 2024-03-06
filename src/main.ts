@@ -3,6 +3,7 @@ import * as QRCode from "qrcode";
 import "./style.css";
 import { Wallet } from "./core/wallet";
 import { LocalStorageProvider } from "./core/storage";
+import { isEcashTransaction } from "./core/transaction";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
@@ -22,13 +23,11 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   </div>
 `;
 
-// const wallet = new Wallet("my-wallet", "http://localhost:3338");
 const wallet = new Wallet(
   "my-wallet",
-  "https://mint.brakke.cc",
+  "https://mint.minibits.cash/Bitcoin",
   new LocalStorageProvider()
 );
-
 // actions
 const receiveFormEl = document.querySelector<HTMLFormElement>("form#receive")!;
 const sendFormEl = document.querySelector<HTMLFormElement>("form#send")!;
@@ -44,6 +43,12 @@ const balanceEl = document.querySelector<HTMLDivElement>("#balance")!;
 
 wallet.state$.subscribe((state) => {
   balanceEl.innerHTML = `Balance: ${state.balance}`;
+  const pendingTokens = Object.values(state.transactions)
+    .filter(isEcashTransaction)
+    .filter((t) => !t.isPaid);
+  const pendingTokensEl =
+    document.querySelector<HTMLDivElement>("#pending-tokens")!;
+  pendingTokensEl.innerHTML = pendingTokens.map((t) => t.token).join(", ");
 });
 
 fromEvent(receiveFormEl, "submit").subscribe(async (e) => {
