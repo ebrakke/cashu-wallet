@@ -1,9 +1,10 @@
 import { fromEvent } from "rxjs";
 import * as QRCode from "qrcode";
-import "./style.css";
-import { Wallet } from "./core/wallet";
-import { LocalStorageProvider } from "./core/storage";
-import { isEcashTransaction } from "./core/transaction";
+import {
+  Wallet,
+  LocalStorageProvider,
+  isEcashTransaction,
+} from "@cashu-wallet/core";
 
 document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
   <div>
@@ -25,7 +26,7 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 
 const wallet = new Wallet(
   "my-wallet",
-  "https://mint.minibits.cash/Bitcoin",
+  "http://localhost:3338",
   new LocalStorageProvider()
 );
 // actions
@@ -71,7 +72,7 @@ fromEvent(sendFormEl, "submit").subscribe(async (e) => {
   if (invoice) {
     await wallet.send({ type: "lightning", amount, pr: invoice });
   } else {
-    const token = await wallet.send({ type: "cashu", amount });
+    const token = await wallet.send({ type: "ecash", amount });
     await QRCode.toCanvas(document.getElementById("invoice"), token!);
   }
   receiveAmountEl.value = "";

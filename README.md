@@ -54,7 +54,7 @@ Create adapters for:
 
 1. Clone the repository: `git clone https://github.com/ebrakke/cashu-wallet.git`
 2. Install dependencies: `pnpm install`
-3. Run sample app: `pnpm dev`
+3. Run sample app: `cd examples/vanilla-js && pnpm dev`
 
 ## Contributing
 
