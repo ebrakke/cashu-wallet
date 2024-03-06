@@ -33,13 +33,13 @@ export interface WalletState {
   transactions: Record<string, Transaction>;
 }
 
-type EcashToken = { type: "ecash"; token: string };
-type Bolt11Invoice = { type: "lightning"; amount: number };
-type ReceivePayload = EcashToken | Bolt11Invoice;
+type ReceiveEcash = { type: "ecash"; token: string };
+type ReceiveLightning = { type: "lightning"; amount: number };
+type ReceivePayload = ReceiveEcash | ReceiveLightning;
 
-type SendToken = { type: "cashu"; amount: number };
+type SendEcash = { type: "ecash"; amount: number };
 type SendLightning = { type: "lightning"; amount: number; pr: string };
-type SendPayload = SendToken | SendLightning;
+type SendPayload = SendEcash | SendLightning;
 
 type EcashTransaction = {
   type: "ecash";
@@ -119,7 +119,7 @@ export class Wallet implements IWallet {
   }
 
   async send(payload: SendPayload) {
-    if (payload.type === "cashu") {
+    if (payload.type === "ecash") {
       return await this.#sendEcash(payload.amount);
     } else {
       return await this.#sendLightning(payload.pr);
