@@ -4,10 +4,7 @@ import { useState } from "react";
 function App() {
   const [receiveAmount, setReceiveAmount] = useState<number | undefined>();
   const [receiveToken, setReceiveToken] = useState<string | undefined>();
-  const { state, send, receive } = useWallet(
-    "react-wallt",
-    "http://localhost:3338"
-  );
+  const { state, receive } = useWallet("react-wallet", "http://localhost:3338");
 
   const handleReceive = () => {
     if (receiveAmount) {

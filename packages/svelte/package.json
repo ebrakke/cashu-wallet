@@ -1,7 +1,7 @@
 {
-  "name": "@cashu-wallet/core",
+  "name": "svelte",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -19,15 +19,15 @@
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "build": "tsup src/index.ts --format cjs,esm --dts"
   },
-  "devDependencies": {
-    "@types/lodash": "^4.14.202",
-    "tsup": "^8.0.2",
-    "typescript": "^5.4.2"
-  },
   "dependencies": {
-    "@cashu/cashu-ts": "^0.9.0",
-    "@gandlaf21/bolt11-decode": "^3.0.6",
-    "lodash": "^4.17.21",
-    "rxjs": "^7.8.1"
+    "@cashu-wallet/core": "workspace:*"
+  },
+  "devDependencies": {
+    "svelte": "^4.2.12",
+    "tsup": "^8.0.2",
+    "typescript": "^5.2.2"
+  },
+  "peerDependencies": {
+    "svelte": "^4.2.12"
   }
 }
