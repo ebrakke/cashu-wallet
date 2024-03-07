@@ -60,9 +60,10 @@ export class Wallet implements IWallet {
   constructor(
     id: string,
     mintUrl: string,
-    private readonly storage?: StorageProvider
+    private readonly storage?: StorageProvider,
+    key?: string
   ) {
-    this.STORAGE_KEY = `wallet-${mintUrl}-${id}`;
+    this.STORAGE_KEY = key ?? `wallet-${mintUrl}-${id}`;
     this.#mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(this.#mint);
     if (this.storage) {
@@ -338,4 +339,12 @@ export class Wallet implements IWallet {
   get #transactions() {
     return this.#transactions$$.getValue();
   }
+}
+
+export function getTokenAmount(token: string): number {
+  const decoded = getDecodedToken(token);
+  return decoded.token.reduce(
+    (acc, t) => acc + _.sumBy(t.proofs, (p) => p.amount),
+    0
+  );
 }

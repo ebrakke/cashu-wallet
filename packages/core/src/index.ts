@@ -1,4 +1,9 @@
-export { Wallet, type SendPayload, type ReceivePayload } from "./wallet";
+export {
+  Wallet,
+  type SendPayload,
+  type ReceivePayload,
+  getTokenAmount,
+} from "./wallet";
 export { LocalStorageProvider, type StorageProvider } from "./storage";
 export {
   isEcashTransaction,
