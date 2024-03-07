@@ -3,22 +3,27 @@ import {
   type StorageProvider,
   type WalletState,
 } from "@cashu-wallet/core";
-import * as fs from "fs";
+import * as fs from "fs/promises";
 
 class FileStorageProvider implements StorageProvider {
   constructor(private readonly key: string) {}
-  get() {
-    if (!fs.existsSync(this.key)) {
+  async get() {
+    try {
+      await fs.stat(this.key);
+    } catch {
       return null;
     }
-    const value = fs.readFileSync(this.key, "utf8");
+    if (!fs.stat(this.key)) {
+      return null;
+    }
+    const value = await fs.readFile(this.key, "utf8");
     if (!value) {
       return null;
     }
     return JSON.parse(value) as WalletState;
   }
-  set(value: WalletState) {
-    fs.writeFileSync(this.key, JSON.stringify(value));
+  async set(value: WalletState) {
+    return fs.writeFile(this.key, JSON.stringify(value));
   }
 }
 

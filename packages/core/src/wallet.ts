@@ -36,7 +36,7 @@ type ReceiveLightning = { type: "lightning"; amount: number };
 export type ReceivePayload = ReceiveEcash | ReceiveLightning;
 
 type SendEcash = { type: "ecash"; amount: number };
-type SendLightning = { type: "lightning"; amount: number; pr: string };
+type SendLightning = { type: "lightning"; pr: string };
 export type SendPayload = SendEcash | SendLightning;
 
 interface IWallet {
@@ -60,9 +60,10 @@ export class Wallet implements IWallet {
     this.#mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(this.#mint);
     if (this.storage) {
-      this.#loadFromStorage();
-      this.#setupPersistence();
-      this.#initializeWorkers();
+      this.#loadFromStorage().then(() => {
+        this.#setupPersistence();
+        this.#initializeWorkers();
+      });
     }
   }
 
@@ -116,10 +117,6 @@ export class Wallet implements IWallet {
     } else {
       return await this.#sendLightning(payload.pr);
     }
-  }
-
-  getEncodedToken(token: Token): string {
-    return getEncodedToken(token);
   }
 
   /**
@@ -277,8 +274,8 @@ export class Wallet implements IWallet {
    */
   #setupPersistence() {
     if (this.storage) {
-      this.state$.subscribe((state) => {
-        this.storage!.set(state);
+      this.state$.subscribe(async (state) => {
+        await this.storage!.set(state);
       });
     }
   }
@@ -286,9 +283,9 @@ export class Wallet implements IWallet {
   /**
    * If a storage provider is provided, the wallet state will be initialized from storage
    */
-  #loadFromStorage() {
+  async #loadFromStorage() {
     if (this.storage) {
-      const state = this.storage.get();
+      const state = await this.storage.get();
       if (state) {
         this.#proofs$$.next(state.proofs);
         this.#transactions$$.next(state.transactions);

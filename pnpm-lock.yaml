@@ -20,6 +20,9 @@ importers:
       '@cashu-wallet/svelte':
         specifier: workspace:*
         version: link:../../packages/svelte
+      qrcode:
+        specifier: ^1.5.3
+        version: 1.5.3
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0

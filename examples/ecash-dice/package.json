@@ -10,8 +10,9 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
   },
   "dependencies": {
+    "@cashu-wallet/core": "workspace:*",
     "@cashu-wallet/svelte": "workspace:*",
-    "@cashu-wallet/core": "workspace:*"
+    "qrcode": "^1.5.3"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",

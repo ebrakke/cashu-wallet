@@ -4,21 +4,33 @@
   const wallet = createWalletStore("my-wallet", "http://localhost:3338");
 
   let bet = 10;
-  let roll = 0;
   let result = "";
+  let fundServerToken: string | undefined;
 
   const handleSubmit = async () => {
     const token = await wallet.send({ type: "ecash", amount: bet });
-    const response = await fetch("/", {
+    const response = await fetch("/bet", {
       method: "POST",
-      body: JSON.stringify({ token, roll }),
+      body: JSON.stringify({ token }),
     });
     const r = await response.json();
     if (r.token) {
       await wallet.receive({ type: "ecash", token: r.token });
-      result = "You won! " + r.win;
+      result = `You won, server rolled ${r.serverRoll} and you rolled ${r.clientRoll}`;
     } else {
-      result = `You lost, server rolled ${r.roll} and you rolled ${roll}`;
+      result = `You lost, server rolled ${r.serverRoll} and you rolled ${r.clientRoll}`;
+    }
+  };
+
+  const fundServer = async () => {
+    if (fundServerToken) {
+      const res = await fetch("/fund", {
+        method: "POST",
+        body: JSON.stringify({ token: fundServerToken }),
+      });
+      if (res.ok) {
+        fundServerToken = undefined;
+      }
     }
   };
 </script>
@@ -29,35 +41,28 @@
   <div>
     <h3>Place your bet</h3>
     <form on:submit|preventDefault={handleSubmit}>
-      <div>
-        <label>Bet</label>
-        <input
-          type="number"
-          name="bet"
-          min="10"
-          max="100"
-          step="1"
-          placeholder="sats"
-          bind:value={bet}
-        />
-      </div>
-      <div>
-        <input
-          type="number"
-          name="roll"
-          min="1"
-          max="6"
-          disabled
-          bind:value={roll}
-        />
-        <button
-          type="button"
-          on:click={() => (roll = Math.floor(Math.random() * 6) + 1)}
-        >
-          Roll
-        </button>
-      </div>
+      <label for="bet">Bet</label>
+      <input
+        type="number"
+        name="bet"
+        min="10"
+        max="100"
+        step="1"
+        placeholder="sats"
+        bind:value={bet}
+      />
       <button>Bet!</button>
+    </form>
+  </div>
+  <div>
+    <h3>Fund this server! Paste an ecash token here</h3>
+    <form on:submit|preventDefault={fundServer}>
+      <input
+        type="text"
+        placeholder="ecash token"
+        bind:value={fundServerToken}
+      />
+      <button>Fund</button>
     </form>
   </div>
 </div>
