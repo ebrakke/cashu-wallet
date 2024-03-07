@@ -4,3 +4,14 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
+  app:
+    image: registry.fly.io/ecash-dice:latest
+    build: 
+      context: ../../
+      dockerfile: ./examples/ecash-dice/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis

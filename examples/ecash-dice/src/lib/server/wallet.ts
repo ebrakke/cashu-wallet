@@ -4,7 +4,8 @@ import {
   type AsyncStorageProvider,
 } from "@cashu-wallet/core";
 import * as fs from "fs/promises";
-import { Redis, type RedisOptions } from "ioredis";
+import { Redis } from "ioredis";
+import { REDIS_CONNECTION_STRING } from "$env/static/private";
 
 class FileStorageProvider implements AsyncStorageProvider {
   constructor(private readonly key: string) {}
@@ -27,8 +28,8 @@ class FileStorageProvider implements AsyncStorageProvider {
 
 class RedisStorageProvider implements AsyncStorageProvider {
   redis: Redis;
-  constructor(private readonly key: string, redisOptions: RedisOptions) {
-    this.redis = new Redis(redisOptions);
+  constructor(private readonly key: string, connectionString: string) {
+    this.redis = new Redis(connectionString);
   }
   async get() {
     const value = await this.redis.get(this.key);
@@ -49,7 +50,7 @@ async function getOrCreateServerWallet() {
   }
   const storageProvider = new RedisStorageProvider(
     "server-minibits-wallet",
-    {}
+    REDIS_CONNECTION_STRING
   );
   serverWallet = await Wallet.loadFromAsyncStorage(
     "https://mint.minibits.cash/Bitcoin",
