@@ -1,1 +1,1 @@
-export { createWalletStore } from "./walletStore";
+export { createWalletStore, type WalletStore } from "./walletStore";

@@ -22,3 +22,5 @@ export function createWalletStore(id: string, mintUrl: string) {
     receive: (payload: ReceivePayload) => wallet.receive(payload),
   };
 }
+
+export type WalletStore = ReturnType<typeof createWalletStore>;

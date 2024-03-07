@@ -40,21 +40,23 @@ This provides the bare bones functionality that one might want to do with a cash
 
 Create adapters for:
 
-- [ ] React (hook)
-- [ ] Svelte (store)
+- [x] React (hook)
+- [x] Svelte (store)
 - [ ] Vue (pinia store)
 
 - [ ] Better documentation
-- [ ] Better sample application
-- [ ] Cleanup dependencies
-- [ ] Make this a library
+- [x] Better sample application
+- [x] Cleanup dependencies
+- [x] Make this a library
 - [ ] Publish to npm
 
 ## Installation
 
 1. Clone the repository: `git clone https://github.com/ebrakke/cashu-wallet.git`
 2. Install dependencies: `pnpm install`
-3. Run sample app: `cd examples/vanilla-js && pnpm dev`
+3. Build packages: `pnpm build`
+
+Now you can run any of the example applications in `examples`. Navigate to the example you wish to run and run `pnpm dev`
 
 ## Contributing
 
