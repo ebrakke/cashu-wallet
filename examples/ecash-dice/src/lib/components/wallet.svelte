@@ -59,7 +59,8 @@
 </script>
 
 <div>
-  <span>Balance: {$state.balance}</span>
+  <p>Mint: {$state.mintUrl}</p>
+  <p>Balance: {$state.balance}</p>
   <div>
     <p>Receive</p>
     <form on:submit|preventDefault={handleReceive}>
@@ -104,7 +105,7 @@
             <span>{token.amount}</span>
             <span>{token.token.slice(0, 10)}...</span>
             <button on:click={() => handleCopy(token.token)}>Copy</button>
-            <button>Scan</button>
+            <button on:click={() => handleScan(token.token)}>Scan</button>
           </li>
         {/each}
       </ul>

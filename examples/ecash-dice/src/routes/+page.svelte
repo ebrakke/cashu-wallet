@@ -1,9 +1,13 @@
 <script lang="ts">
   import Wallet from "$lib/components/wallet.svelte";
   import { createWalletStore } from "@cashu-wallet/svelte";
-  const wallet = createWalletStore("my-wallet", "https://mint.brakke.cc", {
-    workerInterval: 1000,
-  });
+  const wallet = createWalletStore(
+    "my-wallet",
+    "https://mint.minibits.cash/Bitcoin",
+    {
+      workerInterval: 3000,
+    }
+  );
 
   let bet = 1;
   let result = "";
@@ -16,6 +20,10 @@
       body: JSON.stringify({ token }),
     });
     const r = await response.json();
+    if (r.error) {
+      result = `Error: ${r.error}`;
+      return;
+    }
     if (r.token) {
       await wallet.receive({ type: "ecash", token: r.token });
       result = `You won, server rolled ${r.serverRoll} and you rolled ${r.clientRoll}`;
@@ -38,6 +46,15 @@
 </script>
 
 <div>
+  <p>
+    Fund your wallet, roll the dice, win a prize! If you roll higher than the
+    server, you win double what you bet!
+  </p>
+  <p>
+    This wallet is setup to only work with one mint. Trying to fund with ecash
+    from other mints will fail!
+  </p>
+  <hr />
   <Wallet {wallet} />
   <h3>{result}</h3>
   <div>
