@@ -1,16 +1,19 @@
 import { readable } from "svelte/store";
 import {
   LocalStorageProvider,
-  ReceivePayload,
-  SendPayload,
   Wallet,
+  type WalletConfig,
+  type ReceivePayload,
+  type SendPayload,
 } from "@cashu-wallet/core";
 
-export function createWalletStore(id: string, mintUrl: string) {
-  const wallet = new Wallet(
-    mintUrl,
-    new LocalStorageProvider(`${id}-${mintUrl}`)
-  );
+export function createWalletStore(
+  id: string,
+  mintUrl: string,
+  config?: WalletConfig
+) {
+  const storageProvider = new LocalStorageProvider(`${id}-${mintUrl}`);
+  const wallet = Wallet.loadFromSyncStorage(mintUrl, storageProvider, config);
   const state = readable(wallet.state, (set) => {
     const subscription = wallet.state$.subscribe(set);
     return () => subscription.unsubscribe();

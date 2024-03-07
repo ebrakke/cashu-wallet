@@ -1,19 +1,16 @@
 import {
   Wallet,
-  type StorageProvider,
   type WalletState,
+  type AsyncStorageProvider,
 } from "@cashu-wallet/core";
 import * as fs from "fs/promises";
 
-class FileStorageProvider implements StorageProvider {
+class FileStorageProvider implements AsyncStorageProvider {
   constructor(private readonly key: string) {}
   async get() {
     try {
       await fs.stat(this.key);
-    } catch {
-      return null;
-    }
-    if (!fs.stat(this.key)) {
+    } catch (e) {
       return null;
     }
     const value = await fs.readFile(this.key, "utf8");
@@ -27,7 +24,18 @@ class FileStorageProvider implements StorageProvider {
   }
 }
 
-export const serverWallet = new Wallet(
-  "http://localhost:3338",
-  new FileStorageProvider("server-wallet.txt")
-);
+let serverWallet: Wallet | null = null;
+async function getOrCreateServerWallet() {
+  if (serverWallet) {
+    return serverWallet;
+  }
+  const storageProvider = new FileStorageProvider("server-wallet-real.txt");
+  serverWallet = await Wallet.loadFromAsyncStorage(
+    "https://mint.brakke.cc",
+    storageProvider
+  );
+  console.log("Server wallet balance: ", serverWallet.state.balance);
+  return serverWallet;
+}
+
+export { getOrCreateServerWallet };

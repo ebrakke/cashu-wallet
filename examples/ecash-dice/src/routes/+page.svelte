@@ -1,9 +1,11 @@
 <script lang="ts">
   import Wallet from "$lib/components/wallet.svelte";
   import { createWalletStore } from "@cashu-wallet/svelte";
-  const wallet = createWalletStore("my-wallet", "http://localhost:3338");
+  const wallet = createWalletStore("my-wallet", "https://mint.brakke.cc", {
+    workerInterval: 1000,
+  });
 
-  let bet = 10;
+  let bet = 1;
   let result = "";
   let fundServerToken: string | undefined;
 
@@ -45,7 +47,7 @@
       <input
         type="number"
         name="bet"
-        min="10"
+        min="1"
         max="100"
         step="1"
         placeholder="sats"

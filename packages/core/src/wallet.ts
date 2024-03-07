@@ -19,7 +19,11 @@ import {
   getDecodedToken,
 } from "@cashu/cashu-ts";
 import { decode } from "@gandlaf21/bolt11-decode";
-import type { StorageProvider } from "./storage";
+import type {
+  AsyncStorageProvider,
+  StorageProvider,
+  StorageSetter,
+} from "./storage";
 import type { WalletState } from "./state";
 import {
   type EcashTransaction,
@@ -46,6 +50,10 @@ interface IWallet {
   send(payload: SendPayload): Promise<string | void>;
 }
 
+export type WalletConfig = {
+  workerInterval?: number;
+};
+
 /**
  * Single mint wallet
  */
@@ -55,15 +63,24 @@ export class Wallet implements IWallet {
   #proofs$$: BehaviorSubject<Proof[]> = new BehaviorSubject([] as Proof[]);
   #transactions$$: BehaviorSubject<Record<string, Transaction>> =
     new BehaviorSubject({});
-  WORKER_INTERVAL = 5000;
-  constructor(mintUrl: string, private readonly storage?: StorageProvider) {
+  WORKER_INTERVAL: number;
+  constructor(
+    mintUrl: string,
+    private readonly storage?: StorageSetter,
+    opts?: WalletConfig,
+    initialState?: WalletState
+  ) {
     this.#mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(this.#mint);
+    this.WORKER_INTERVAL = opts?.workerInterval || 5000;
+
+    if (initialState) {
+      this.#proofs$$ = new BehaviorSubject(initialState.proofs);
+      this.#transactions$$ = new BehaviorSubject(initialState.transactions);
+    }
     if (this.storage) {
-      this.#loadFromStorage().then(() => {
-        this.#setupPersistence();
-        this.#initializeWorkers();
-      });
+      this.#setupPersistence();
+      this.#initializeWorkers();
     }
   }
 
@@ -75,6 +92,7 @@ export class Wallet implements IWallet {
       balance: this.#balance,
       proofs: this.#proofs,
       transactions: this.#transactions,
+      mintUrl: this.#mint.mintUrl,
     };
   }
 
@@ -86,6 +104,7 @@ export class Wallet implements IWallet {
       map(([proofs, transactions]) => ({
         balance: _.sumBy(proofs, "amount"),
         proofs,
+        mintUrl: this.#mint.mintUrl,
         transactions,
       }))
     );
@@ -270,26 +289,13 @@ export class Wallet implements IWallet {
   }
 
   /**
-   * If a storage provider is provided, everytime the wallet state changes, it will be written to storage
+   * If a storage provider is provided, every time the wallet state changes, it will be written to storage
    */
   #setupPersistence() {
     if (this.storage) {
-      this.state$.subscribe(async (state) => {
-        await this.storage!.set(state);
+      this.state$.subscribe((state) => {
+        this.storage!.set(state);
       });
-    }
-  }
-
-  /**
-   * If a storage provider is provided, the wallet state will be initialized from storage
-   */
-  async #loadFromStorage() {
-    if (this.storage) {
-      const state = await this.storage.get();
-      if (state) {
-        this.#proofs$$.next(state.proofs);
-        this.#transactions$$.next(state.transactions);
-      }
     }
   }
 
@@ -328,6 +334,42 @@ export class Wallet implements IWallet {
 
   get #transactions() {
     return this.#transactions$$.getValue();
+  }
+
+  // Static functions
+
+  static async loadFromAsyncStorage(
+    mintUrl: string,
+    storageProvider: AsyncStorageProvider,
+    opts?: WalletConfig
+  ) {
+    const state = await storageProvider.get();
+    const setter = {
+      set: (state: WalletState) => storageProvider.set(state),
+    };
+    if (!state) {
+      console.warn("No saved state found");
+      return new Wallet(mintUrl, setter, opts);
+    }
+    const wallet = new Wallet(mintUrl, setter, opts, state);
+    return wallet;
+  }
+
+  static loadFromSyncStorage(
+    mintUrl: string,
+    storageProvider: StorageProvider,
+    opts?: WalletConfig
+  ) {
+    const state = storageProvider.get();
+    const setter = {
+      set: (state: WalletState) => storageProvider.set(state),
+    };
+    if (!state) {
+      console.warn("No saved state found");
+      return new Wallet(mintUrl, setter, opts);
+    }
+    const wallet = new Wallet(mintUrl, setter, opts, state);
+    return wallet;
   }
 }
 

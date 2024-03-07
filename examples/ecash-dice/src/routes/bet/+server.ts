@@ -1,8 +1,9 @@
-import { serverWallet } from "$lib";
+import { getOrCreateServerWallet } from "$lib";
 import { getTokenAmount } from "@cashu-wallet/core";
 import { json, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ request }) => {
+  const serverWallet = await getOrCreateServerWallet();
   if (serverWallet.state.balance === 0) {
     return json({ error: "Server wallet is empty" });
   }
@@ -14,8 +15,11 @@ export const POST: RequestHandler = async ({ request }) => {
     throw json({ error: "Invalid request" }, { status: 400 });
   }
   const betAmount = getTokenAmount(token);
-  if (betAmount < 10) {
-    return json({ error: "Minimum bet is 10" }, { status: 400 });
+  if (betAmount > serverWallet.state.balance * 2) {
+    return json({ error: "Insufficient server funds" }, { status: 400 });
+  }
+  if (betAmount > 100) {
+    return json({ error: "Maximum bet is 100" }, { status: 400 });
   }
   // Claim token for server wallet
   try {

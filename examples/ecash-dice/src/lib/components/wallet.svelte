@@ -4,6 +4,7 @@
     isLightningTransaction,
   } from "@cashu-wallet/core";
   import type { WalletStore } from "@cashu-wallet/svelte";
+  import * as QRCode from "qrcode";
   export let wallet: WalletStore;
   let state = wallet.state;
 
@@ -11,6 +12,7 @@
   let receiveToken: string | undefined;
   let sendAmount: number | undefined;
   let sendInvoice: string | undefined;
+  let scan = false;
 
   $: pendingInvoices = Object.values($state.transactions)
     .filter(isLightningTransaction)
@@ -44,6 +46,13 @@
     }
   };
 
+  const handleScan = (text: string) => {
+    scan = true;
+    setTimeout(() => {
+      QRCode.toCanvas(document.getElementById("qr"), text);
+    }, 100);
+  };
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -55,7 +64,7 @@
     <p>Receive</p>
     <form on:submit|preventDefault={handleReceive}>
       <input type="number" placeholder="sats" bind:value={receiveAmount} />
-      <input type="text" placeholder="ecash token" bind:value={receiveToken} />
+      <input type="text" placeholder="ecash" bind:value={receiveToken} />
       <button>Receive</button>
     </form>
   </div>
@@ -80,7 +89,7 @@
             <span>{invoice.amount}</span>
             <span>{invoice.pr.slice(0, 10)}...</span>
             <button on:click={() => handleCopy(invoice.pr)}>Copy</button>
-            <button>Scan</button>
+            <button on:click={() => handleScan(invoice.pr)}>Scan</button>
           </li>
         {/each}
       </ul>
@@ -100,6 +109,10 @@
         {/each}
       </ul>
     </div>
+  {/if}
+  {#if scan}
+    <canvas id="qr"></canvas>
+    <button on:click={() => (scan = false)}>Close</button>
   {/if}
 </div>
 

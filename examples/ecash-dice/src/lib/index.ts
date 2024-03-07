@@ -1,2 +1,2 @@
 // place files you want to import through the `$lib` alias in this folder.
-export { serverWallet } from "./server/wallet";
+export { getOrCreateServerWallet } from "./server/wallet";

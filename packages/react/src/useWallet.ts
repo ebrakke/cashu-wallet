@@ -19,8 +19,11 @@ function useConstant<T>(fn: () => T): T {
 }
 
 export function useWallet(id: string, mintUrl: string) {
+  const storageProvider = useConstant(() => {
+    return new LocalStorageProvider(`${id}-${mintUrl}`);
+  });
   const wallet = useConstant(() => {
-    return new Wallet(mintUrl, new LocalStorageProvider(`${id}-${mintUrl}`));
+    return Wallet.loadFromSyncStorage(mintUrl, storageProvider);
   });
   const [state] = useObservableState(() => wallet.state$);
 
