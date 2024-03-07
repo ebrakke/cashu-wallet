@@ -7,7 +7,10 @@ import {
 } from "@cashu-wallet/core";
 
 export function createWalletStore(id: string, mintUrl: string) {
-  const wallet = new Wallet(id, mintUrl, new LocalStorageProvider());
+  const wallet = new Wallet(
+    mintUrl,
+    new LocalStorageProvider(`${id}-${mintUrl}`)
+  );
   const state = readable(wallet.state, (set) => {
     const subscription = wallet.state$.subscribe(set);
     return () => subscription.unsubscribe();

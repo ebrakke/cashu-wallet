@@ -4,9 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "pnpm -r --filter @cashu-wallet/* run build"
   },
   "devDependencies": {
     "@types/node": "^20.11.25"

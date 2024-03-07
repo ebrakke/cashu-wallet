@@ -5,6 +5,7 @@ export {
   getTokenAmount,
 } from "./wallet";
 export { LocalStorageProvider, type StorageProvider } from "./storage";
+export type { WalletState } from "./state";
 export {
   isEcashTransaction,
   isLightningTransaction,

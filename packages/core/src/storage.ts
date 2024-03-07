@@ -1,19 +1,20 @@
 import type { WalletState } from "./state";
 
 export interface StorageProvider {
-  get(key: string): WalletState;
-  set(key: string, value: WalletState): void;
+  get(): WalletState | null;
+  set(value: WalletState): void;
 }
 
 export class LocalStorageProvider implements StorageProvider {
-  get(key: string) {
-    const value = localStorage.getItem(key);
+  constructor(private readonly key: string) {}
+  get() {
+    const value = localStorage.getItem(this.key);
     if (!value) {
       return null;
     }
     return JSON.parse(value);
   }
-  set(key: string, value: WalletState) {
-    localStorage.setItem(key, JSON.stringify(value));
+  set(value: WalletState) {
+    localStorage.setItem(this.key, JSON.stringify(value));
   }
 }

@@ -55,15 +55,8 @@ export class Wallet implements IWallet {
   #proofs$$: BehaviorSubject<Proof[]> = new BehaviorSubject([] as Proof[]);
   #transactions$$: BehaviorSubject<Record<string, Transaction>> =
     new BehaviorSubject({});
-  STORAGE_KEY: string;
   WORKER_INTERVAL = 5000;
-  constructor(
-    id: string,
-    mintUrl: string,
-    private readonly storage?: StorageProvider,
-    key?: string
-  ) {
-    this.STORAGE_KEY = key ?? `wallet-${mintUrl}-${id}`;
+  constructor(mintUrl: string, private readonly storage?: StorageProvider) {
     this.#mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(this.#mint);
     if (this.storage) {
@@ -285,7 +278,7 @@ export class Wallet implements IWallet {
   #setupPersistence() {
     if (this.storage) {
       this.state$.subscribe((state) => {
-        this.storage!.set(this.STORAGE_KEY, state);
+        this.storage!.set(state);
       });
     }
   }
@@ -295,7 +288,7 @@ export class Wallet implements IWallet {
    */
   #loadFromStorage() {
     if (this.storage) {
-      const state = this.storage.get(this.STORAGE_KEY);
+      const state = this.storage.get();
       if (state) {
         this.#proofs$$.next(state.proofs);
         this.#transactions$$.next(state.transactions);

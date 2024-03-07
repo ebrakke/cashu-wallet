@@ -20,7 +20,7 @@ function useConstant<T>(fn: () => T): T {
 
 export function useWallet(id: string, mintUrl: string) {
   const wallet = useConstant(() => {
-    return new Wallet(id, mintUrl, new LocalStorageProvider());
+    return new Wallet(mintUrl, new LocalStorageProvider(`${id}-${mintUrl}`));
   });
   const [state] = useObservableState(() => wallet.state$);
 
