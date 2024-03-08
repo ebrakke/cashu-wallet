@@ -1,13 +1,10 @@
-import { useRef } from "react";
+import { useRef, useCallback } from "react";
 import { useObservableState } from "observable-hooks";
-import {
-  LocalStorageProvider,
-  type ReceivePayload,
-  type SendPayload,
-  Wallet,
-} from "@cashu-wallet/core";
+import { LocalStorageProvider, Wallet } from "@cashu-wallet/core";
 
 type ResultBox<T> = { v: T };
+type Send = InstanceType<typeof Wallet>["send"];
+type Receive = InstanceType<typeof Wallet>["receive"];
 
 function useConstant<T>(fn: () => T): T {
   const ref = useRef<ResultBox<T>>();
@@ -26,10 +23,12 @@ export function useWallet(id: string, mintUrl: string) {
     return Wallet.loadFromSyncStorage(mintUrl, storageProvider);
   });
   const [state] = useObservableState(() => wallet.state$);
+  const send: Send = useCallback((p) => wallet.send(p), [wallet]);
+  const receive: Receive = useCallback((p) => wallet.receive(p), [wallet]);
 
   return {
-    state: state ?? { balance: 0, transactions: {} },
-    send: (p: SendPayload) => wallet.send(p),
-    receive: (p: ReceivePayload) => wallet.receive(p),
+    state: state ?? { balance: 0, transactions: {}, proofs: [] },
+    send,
+    receive,
   };
 }

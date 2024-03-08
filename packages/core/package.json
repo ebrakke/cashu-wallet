@@ -17,7 +17,7 @@
   },
   "scripts": {
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "build": "tsup src/index.ts --format cjs,esm --dts"
+    "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap"
   },
   "devDependencies": {
     "@types/lodash": "^4.14.202",

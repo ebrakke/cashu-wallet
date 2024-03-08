@@ -3,9 +3,10 @@ import {
   LocalStorageProvider,
   Wallet,
   type WalletConfig,
-  type ReceivePayload,
-  type SendPayload,
 } from "@cashu-wallet/core";
+
+type Send = InstanceType<typeof Wallet>["send"];
+type Receive = InstanceType<typeof Wallet>["receive"];
 
 export function createWalletStore(
   id: string,
@@ -19,10 +20,13 @@ export function createWalletStore(
     return () => subscription.unsubscribe();
   });
 
+  const send: Send = (payload) => wallet.send(payload);
+  const receive: Receive = (payload) => wallet.receive(payload);
+
   return {
     state,
-    send: (payload: SendPayload) => wallet.send(payload),
-    receive: (payload: ReceivePayload) => wallet.receive(payload),
+    send,
+    receive,
   };
 }
 

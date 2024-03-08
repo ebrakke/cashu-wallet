@@ -8,6 +8,7 @@ import {
   combineLatest,
   filter,
   retry,
+  Subscription,
 } from "rxjs";
 import _ from "lodash";
 import {
@@ -63,6 +64,7 @@ export class Wallet implements IWallet {
   #proofs$$: BehaviorSubject<Proof[]> = new BehaviorSubject([] as Proof[]);
   #transactions$$: BehaviorSubject<Record<string, Transaction>> =
     new BehaviorSubject({});
+  #subscriptions: Map<string, Subscription> = new Map();
   WORKER_INTERVAL: number;
   constructor(
     mintUrl: string,
@@ -116,11 +118,11 @@ export class Wallet implements IWallet {
    * @param payload
    * @returns void if receiving ecash, or a string if receiving lightning
    */
-  async receive(payload: ReceivePayload) {
+  async receive(payload: ReceivePayload, track = true) {
     if (payload.type === "ecash") {
       await this.#receiveEcash(payload.token);
     } else {
-      return await this.#receiveLightning(payload.amount);
+      return await this.#receiveLightning(payload.amount, track);
     }
   }
 
@@ -136,6 +138,64 @@ export class Wallet implements IWallet {
     } else {
       return await this.#sendLightning(payload.pr);
     }
+  }
+
+  /**
+   * Generates an invoice for the amount less fees. Useful if you want to swap tokens from another mint to this mint.
+   * @param amount
+   */
+  async swap(amount: number, to: Wallet) {
+    const invoice = await to.receive({ type: "lightning", amount }, false);
+    if (!invoice) {
+      throw new Error("Failed to generate invoice");
+    }
+    const fee = await this.#wallet.getFee(invoice);
+    if (amount - fee <= 0) {
+      throw new Error("Amount to swap is less than or equal to the fee");
+    }
+    return await to.receive({ type: "lightning", amount: amount - fee });
+  }
+
+  async getFee(pr: string) {
+    return this.#wallet.getFee(pr);
+  }
+
+  prune({
+    paid = true,
+    pending = false,
+  }: {
+    paid?: boolean;
+    pending?: boolean;
+  }) {
+    const paidT = Object.values(this.#transactions).filter((t) => t.isPaid);
+    const pendingT = Object.values(this.#transactions).filter((t) => !t.isPaid);
+    const newTransactions = { ...this.#transactions };
+    if (paid) {
+      paidT.forEach((t) => {
+        if (isLightningTransaction(t)) {
+          delete newTransactions[t.pr];
+        }
+        if (isEcashTransaction(t)) {
+          delete newTransactions[t.token];
+        }
+      });
+    }
+    if (pending) {
+      pendingT.forEach((t) => {
+        if (isLightningTransaction(t)) {
+          const sub = this.#subscriptions.get(t.pr);
+          sub?.unsubscribe();
+          delete newTransactions[t.pr];
+        }
+        if (isEcashTransaction(t)) {
+          const sub = this.#subscriptions.get(t.token);
+          sub?.unsubscribe();
+          delete newTransactions[t.token];
+        }
+      });
+    }
+
+    this.#transactions$$.next(newTransactions);
   }
 
   /**
@@ -156,7 +216,7 @@ export class Wallet implements IWallet {
    * @param amount
    * @returns
    */
-  async #receiveLightning(amount: number): Promise<string> {
+  async #receiveLightning(amount: number, track = true): Promise<string> {
     const response = await this.#wallet.requestMint(amount);
     if (response.error) {
       console.error(`failed to fund wallet: ${response.error}`);
@@ -167,14 +227,17 @@ export class Wallet implements IWallet {
       amount,
       hash: response.hash,
     });
-    const invoiceChecker$ = this.#createLightningWorker$(transaction);
-    this.#transactions$$.next({
-      ...this.#transactions,
-      [transaction.pr]: transaction,
-    });
-    invoiceChecker$.subscribe((proofs) =>
-      this.#handleLightningTransactionPaid(transaction, proofs)
-    );
+    if (track) {
+      const invoiceChecker$ = this.#createLightningWorker$(transaction);
+      this.#transactions$$.next({
+        ...this.#transactions,
+        [transaction.pr]: transaction,
+      });
+      const sub = invoiceChecker$.subscribe((proofs) =>
+        this.#handleLightningTransactionPaid(transaction, proofs)
+      );
+      this.#subscriptions.set(transaction.pr, sub);
+    }
     return response.pr;
   }
 
@@ -200,7 +263,10 @@ export class Wallet implements IWallet {
       [encodedToken]: transaction,
     });
     const tokenChecker$ = this.#createEcashWorker$(transaction);
-    tokenChecker$.subscribe(() => this.#handleTokenPaid(transaction));
+    const sub = tokenChecker$.subscribe(() =>
+      this.#handleTokenPaid(transaction)
+    );
+    this.#subscriptions.set(encodedToken, sub);
     return encodedToken;
   }
 
@@ -210,14 +276,12 @@ export class Wallet implements IWallet {
    */
   async #sendLightning(pr: string): Promise<void> {
     const fee = await this.#wallet.getFee(pr);
-    const decoded = decode(pr);
-    const amount = decoded.sections.find((s) => s.name === "amount")?.value;
+    const amount = getLnInvoiceAmount(pr);
     if (!amount) {
       throw new Error("Invalid invoice. No amount found");
     }
-    const sats = Math.floor(parseInt(amount) / 1000);
     const { returnChange, send } = await this.#wallet.send(
-      sats + fee,
+      amount + fee,
       this.#proofs
     );
     await this.#wallet.payLnInvoice(pr, send);
@@ -312,13 +376,17 @@ export class Wallet implements IWallet {
       .filter((t) => !t.isPaid);
 
     pendingLightningTransactions.forEach((t) => {
-      this.#createLightningWorker$(t).subscribe((proofs) =>
+      const sub = this.#createLightningWorker$(t).subscribe((proofs) =>
         this.#handleLightningTransactionPaid(t, proofs)
       );
+      this.#subscriptions.set(t.pr, sub);
     });
 
     pendingEcashTransactions.forEach((t) => {
-      this.#createEcashWorker$(t).subscribe(() => this.#handleTokenPaid(t));
+      const sub = this.#createEcashWorker$(t).subscribe(() =>
+        this.#handleTokenPaid(t)
+      );
+      this.#subscriptions.set(t.token, sub);
     });
   }
 
@@ -379,4 +447,10 @@ export function getTokenAmount(token: string): number {
     (acc, t) => acc + _.sumBy(t.proofs, (p) => p.amount),
     0
   );
+}
+
+function getLnInvoiceAmount(pr: string): number {
+  const decoded = decode(pr);
+  const value = decoded.sections.find((s) => s.name === "amount")?.value;
+  return Math.floor(parseInt(value) / 1000);
 }

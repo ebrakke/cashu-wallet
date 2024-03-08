@@ -1,10 +1,5 @@
-export {
-  Wallet,
-  type SendPayload,
-  type ReceivePayload,
-  type WalletConfig,
-  getTokenAmount,
-} from "./wallet";
+export { Wallet, getTokenAmount, type WalletConfig } from "./wallet";
+export { MultiMintWallet } from "./multi-wallet";
 export {
   LocalStorageProvider,
   type StorageProvider,
