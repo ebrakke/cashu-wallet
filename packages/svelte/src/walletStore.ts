@@ -1,32 +1,36 @@
 import { readable } from "svelte/store";
 import {
   LocalStorageProvider,
-  Wallet,
-  type WalletConfig,
+  SingleMintWallet,
+  WalletState,
+  type WalletOptions,
 } from "@cashu-wallet/core";
-
-type Send = InstanceType<typeof Wallet>["send"];
-type Receive = InstanceType<typeof Wallet>["receive"];
 
 export function createWalletStore(
   id: string,
   mintUrl: string,
-  config?: WalletConfig
+  opts?: WalletOptions
 ) {
-  const storageProvider = new LocalStorageProvider(`${id}-${mintUrl}`);
-  const wallet = Wallet.loadFromSyncStorage(mintUrl, storageProvider, config);
+  const storageProvider = new LocalStorageProvider<WalletState>(
+    `${id}-${mintUrl}`
+  );
+  const wallet = SingleMintWallet.loadFromSyncStorage(
+    id,
+    mintUrl,
+    storageProvider,
+    opts
+  );
   const state = readable(wallet.state, (set) => {
     const subscription = wallet.state$.subscribe(set);
     return () => subscription.unsubscribe();
   });
 
-  const send: Send = (payload) => wallet.send(payload);
-  const receive: Receive = (payload) => wallet.receive(payload);
-
   return {
     state,
-    send,
-    receive,
+    sendEcash: (amount: number) => wallet.sendEcash(amount),
+    sendLightning: (pr: string) => wallet.sendLightning(pr),
+    receiveEcash: (token: string) => wallet.receiveEcash(token),
+    receiveLightning: (amount: number) => wallet.receiveLightning(amount),
   };
 }
 

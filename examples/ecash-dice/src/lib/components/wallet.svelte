@@ -24,24 +24,24 @@
 
   const handleReceive = async () => {
     if (receiveAmount) {
-      await wallet.receive({ type: "lightning", amount: receiveAmount });
+      await wallet.receiveLightning(receiveAmount);
       receiveAmount = undefined;
       return;
     }
     if (receiveToken) {
-      await wallet.receive({ type: "ecash", token: receiveToken });
+      await wallet.receiveEcash(receiveToken);
       receiveToken = "";
     }
   };
 
   const handleSend = async () => {
     if (sendAmount) {
-      await wallet.send({ type: "ecash", amount: sendAmount });
+      await wallet.sendEcash(sendAmount);
       sendAmount = undefined;
       return;
     }
     if (sendInvoice) {
-      await wallet.send({ type: "lightning", pr: sendInvoice });
+      await wallet.sendLightning(sendInvoice);
       sendInvoice = undefined;
     }
   };

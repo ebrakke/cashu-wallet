@@ -1,6 +1,7 @@
 import { getOrCreateServerWallet } from "$lib";
 import { error, json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+import { getDecodedToken, getTokenMint } from "@cashu-wallet/core";
 
 export const POST: RequestHandler = async ({ request }) => {
   const { token } = (await request.json()) as { token: string };
@@ -10,7 +11,11 @@ export const POST: RequestHandler = async ({ request }) => {
   }
 
   try {
-    await serverWallet.receive({ type: "ecash", token });
+    if (getTokenMint(getDecodedToken(token)) !== serverWallet.mintUrl) {
+      await serverWallet.swap(token);
+    } else {
+      await serverWallet.receiveEcash(token);
+    }
   } catch (e) {
     console.error(e);
     throw error(400, "Invalid token");

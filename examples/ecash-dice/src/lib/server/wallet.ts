@@ -1,5 +1,5 @@
 import {
-  MultiMintWallet,
+  SingleMintWallet,
   type WalletState,
   type AsyncStorageProvider,
 } from "@cashu-wallet/core";
@@ -7,7 +7,7 @@ import * as fs from "fs/promises";
 import { Redis } from "ioredis";
 import { REDIS_CONNECTION_STRING } from "$env/static/private";
 
-class FileStorageProvider implements AsyncStorageProvider {
+class FileStorageProvider implements AsyncStorageProvider<WalletState> {
   constructor(private readonly key: string) {}
   async get() {
     try {
@@ -26,7 +26,7 @@ class FileStorageProvider implements AsyncStorageProvider {
   }
 }
 
-class RedisStorageProvider implements AsyncStorageProvider {
+class RedisStorageProvider implements AsyncStorageProvider<WalletState> {
   redis: Redis;
   constructor(private readonly key: string, connectionString: string) {
     this.redis = new Redis(connectionString);
@@ -43,25 +43,21 @@ class RedisStorageProvider implements AsyncStorageProvider {
   }
 }
 
-let serverWallet: MultiMintWallet | null = null;
+let serverWallet: SingleMintWallet | null = null;
 async function getOrCreateServerWallet() {
   if (serverWallet) {
     return serverWallet;
   }
-  serverWallet = new MultiMintWallet();
+  serverWallet = await SingleMintWallet.loadFromAsyncStorage(
+    "localhost-1",
+    "http://localhost:3338",
+    new FileStorageProvider("server-localhost-wallet")
+  );
   // const storageProvider = new RedisStorageProvider(
   //   "server-minibits-wallet",
   //   REDIS_CONNECTION_STRING
   // );
-  const storageProvider = new FileStorageProvider("server-localhost-wallet");
-  await serverWallet.addWalletWithAsyncStorage(
-    // "https://mint.minibits.cash/Bitcoin",
-    "https://localhost:3338",
-    storageProvider
-  );
-  // const wallet = mmWallet.getWallet("https://mint.minibits.cash/Bitcoin");
-  const wallet = serverWallet.getWallet("https://localhost:3338");
-  console.log("Server wallet balance: ", wallet.state.balance);
+  console.log("Server wallet balance: ", serverWallet.state.balance);
   return serverWallet;
 }
 

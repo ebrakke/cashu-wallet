@@ -3,8 +3,7 @@ import { getDecodedToken, getTokenAmount } from "@cashu-wallet/core";
 import { json, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ request }) => {
-  const serverWallet = await getOrCreateServerWallet();
-  const wallet = serverWallet.getWallet("https://localhost:3338");
+  const wallet = await getOrCreateServerWallet();
   if (wallet.state.balance === 0) {
     return json({ error: "Server wallet is empty" });
   }
@@ -25,21 +24,13 @@ export const POST: RequestHandler = async ({ request }) => {
   // Claim token for server wallet
   try {
     const balance = wallet.state.balance;
-    await serverWallet.receive({
-      type: "ecash",
-      strategy: "swap",
-      token,
-      mint: wallet.state.mintUrl,
-    });
+    await wallet.receiveEcash(token);
     const amountLessFees = wallet.state.balance - balance;
     const serverRoll = Math.floor(Math.random() * 6) + 1;
     const clientRoll = Math.floor(Math.random() * 6) + 1;
     if (serverRoll < clientRoll) {
       const winAmount = amountLessFees * 2;
-      const token = await wallet.send({
-        type: "ecash",
-        amount: winAmount,
-      });
+      const token = await wallet.sendEcash(winAmount);
       return json({ win: winAmount, token, serverRoll, clientRoll });
     }
     return json({ win: 0, serverRoll, clientRoll });

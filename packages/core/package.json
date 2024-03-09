@@ -20,14 +20,12 @@
     "build": "tsup src/index.ts --format cjs,esm --dts --sourcemap"
   },
   "devDependencies": {
-    "@types/lodash": "^4.14.202",
     "tsup": "^8.0.2",
     "typescript": "^5.4.2"
   },
   "dependencies": {
     "@cashu/cashu-ts": "^0.9.0",
     "@gandlaf21/bolt11-decode": "^3.0.6",
-    "lodash": "^4.17.21",
     "rxjs": "^7.8.1"
   }
 }

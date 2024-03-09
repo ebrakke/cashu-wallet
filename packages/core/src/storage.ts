@@ -1,30 +1,32 @@
-import type { WalletState } from "./state";
-
-export interface StorageGetter {
-  get(): WalletState | null;
+export interface StorageGetter<T extends object> {
+  get(): T | null;
 }
 
-export interface StorageSetter {
-  set(value: WalletState): void;
+export interface StorageSetter<T extends object> {
+  set(value: T): void;
 }
 
-export interface StorageProvider extends StorageGetter, StorageSetter {}
+export interface StorageProvider<T extends object>
+  extends StorageGetter<T>,
+    StorageSetter<T> {}
 
-export interface AsyncStorageProvider {
-  get(): Promise<WalletState | null>;
-  set(value: WalletState): Promise<void>;
+export interface AsyncStorageProvider<T extends object> {
+  get(): Promise<T | null>;
+  set(value: T): Promise<void>;
 }
 
-export class LocalStorageProvider implements StorageProvider {
+export class LocalStorageProvider<T extends object>
+  implements StorageProvider<T>
+{
   constructor(private readonly key: string) {}
   get() {
     const value = localStorage.getItem(this.key);
     if (!value) {
       return null;
     }
-    return JSON.parse(value);
+    return JSON.parse(value) as T;
   }
-  set(value: WalletState) {
+  set(value: T) {
     localStorage.setItem(this.key, JSON.stringify(value));
   }
 }

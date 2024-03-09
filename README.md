@@ -58,6 +58,74 @@ Create adapters for:
 
 Now you can run any of the example applications in `examples`. Navigate to the example you wish to run and run `pnpm dev`
 
+## Usage
+
+```ts
+// Single mint
+import { SingleMintWallet, LocalStorageProvider } from "@cashu-wallet/core";
+
+const wallet = new SingleMintWallet(
+  "minibits",
+  "https://mint.minitbits.cash/Bitcoin",
+  new LocalStorageProvider("minibits-wallet")
+);
+
+// lightning
+const invoice = await wallet.receiveLightning(100); // Generates an invoice to fund the wallet
+await wallet.payLightning(invoice); // Pays an invoice with e-cash
+
+// E-Cash
+await wallet.receiveEcash(token); // redeems an ecash token. Token must be the same mint as the wallet
+const token = await wallet.sendEcash(amount); // Creates a spendable e-cash token
+await wallet.swap(token); // Receive an e-cash token from another mint and swap it to the wallet's mint
+
+// State
+wallet.state; // returns a snapshot of the current wallet state. See WalletState for more details
+wallet.state$; // returns an observable of the current wallet state
+
+// Utilities
+wallet.pruneSpentTokens(); // Removes any spent ecash tokens from the wallet state
+wallet.prunePaidInvoices(); // Removes any paid invoices from the wallet state
+wallet.dump(); // Returns a JSON stringified version of the wallet state
+SingleMintWallet.loadFromSyncStorage(key, storageProvider); // Wallet factory to load wallets from sync storage
+SingleMintWallet.loadFromAsyncStorage(key, storageProvider); // Factory to create a wallet stored with async storage
+
+// Multi Mint
+import { MultiMintWallet, LocalStorageProvider } from "@cashu-wallet/core";
+const wallets = new MultiMintWallet(
+  (id: string, mintUrl: string) => StorageProvider
+);
+
+// Wallet Management
+wallets.add("minibits", "https://mint.minibits.cash/Bitcoin");
+wallets.setDefault("minibits"); // First wallet added is the default wallet by default
+const wallet = wallets.getWallet("minibits"); // Gets an instance of SingleMintWallet
+
+wallets.state; // Snapshot of the multi wallet state. See MultiMintWalletState for more details
+wallets.state$; // Observable of the multi wallet state
+```
+
+### Wallet State
+
+```ts
+type WalletState = {
+  balance: number; // The sum of all of the valid proofs in the wallet
+  transactions: Record<string, Transaction>; // A record of E-Cash and Lightning transactions
+  mintUrl: string; // The mintUrl of the wallet
+  id: string; // The ID of the wallet
+};
+```
+
+### Multi Wallet State
+
+```ts
+type MultiMintWalletState = {
+  balance: number; // The sum of proofs across all wallets
+  defaultWallet: string; // The ID of the default wallet
+  walletIds: string[]; // The IDs of all the wallets in the wallet state
+};
+```
+
 ## Contributing
 
 Contributions are welcome! Please follow the guidelines in [CONTRIBUTING.md](./CONTRIBUTING.md).

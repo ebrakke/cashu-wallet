@@ -1,8 +1,7 @@
 import { fromEvent } from "rxjs";
 import * as QRCode from "qrcode";
 import {
-  Wallet,
-  MultiMintWallet,
+  SingleMintWallet,
   LocalStorageProvider,
   isEcashTransaction,
 } from "@cashu-wallet/core";
@@ -22,39 +21,19 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
     <div id="balance">Balance: 0</div>
     <div id="pending-tokens"></div>
 
-    <div id="wallet-2">
-      <h1>Wallet 2</h1>
-      <p id="wallet2-balance"></p>
-      <form id="receive2">
-        <input id="receive-amount2" type="number" placeholder="amount"/>
-        <input id="token2" type="text" placeholder="token"/>
-        <button>Receive</button>
-      </form>
-    </div>
     <canvas id="invoice"></canvas>
   </div>
 `;
 
-const wallet = Wallet.loadFromSyncStorage(
-  // "http://localhost:3338",
-  "https://mint.minibits.cash/Bitcoin",
-  new LocalStorageProvider(`minibits`)
+const wallet = SingleMintWallet.loadFromSyncStorage(
+  "local-1",
+  "http://localhost:3338",
+  new LocalStorageProvider("local-1")
 );
-
-const mmWallet = new MultiMintWallet();
-mmWallet.addWalletWithSyncStorage(
-  // "http://localhost:3339",
-  "https://mint.brakke.cc",
-  new LocalStorageProvider(`brakke.cc`)
-);
-
-const wallet2 = mmWallet.getWallet("https://mint.brakke.cc");
 
 // actions
 const receiveFormEl = document.querySelector<HTMLFormElement>("form#receive")!;
 const sendFormEl = document.querySelector<HTMLFormElement>("form#send")!;
-const receive2FormEl =
-  document.querySelector<HTMLFormElement>("form#receive2")!;
 
 // state
 const receiveAmountEl =
@@ -64,9 +43,6 @@ const sendAmountEl = document.querySelector<HTMLInputElement>("#send-amount")!;
 const sendInvoiceEl =
   document.querySelector<HTMLInputElement>("#send-invoice")!;
 const balanceEl = document.querySelector<HTMLDivElement>("#balance")!;
-const balance2El = document.querySelector<HTMLDivElement>("#wallet2-balance")!;
-
-const receieve2TokenEl = document.querySelector<HTMLInputElement>("#token2")!;
 
 wallet.state$.subscribe((state) => {
   balanceEl.innerHTML = `Balance: ${state.balance}`;
@@ -78,33 +54,14 @@ wallet.state$.subscribe((state) => {
   pendingTokensEl.innerHTML = pendingTokens.map((t) => t.token).join(", ");
 });
 
-wallet2.state$.subscribe((state) => {
-  console.log("STATE2", state);
-  balance2El.innerHTML = `Balance: ${state.balance}`;
-});
-
-fromEvent(receive2FormEl, "submit").subscribe(async (e) => {
-  e.preventDefault();
-  const token = receieve2TokenEl.value;
-  if (token) {
-    await mmWallet.receive({
-      type: "ecash_swap",
-      token,
-      mint: "https://mint.brakke.cc",
-    });
-    const wallet = mmWallet.getWallet("https://mint.brakke.cc");
-    console.log("wallet", wallet.state);
-  }
-});
-
 fromEvent(receiveFormEl, "submit").subscribe(async (e) => {
   e.preventDefault();
   const amount = receiveAmountEl.valueAsNumber;
   const token = receiveTokenEl.value;
   if (token) {
-    await wallet.receive({ type: "ecash", token });
+    await wallet.receiveEcash(token);
   } else {
-    const invoice = await wallet.receive({ type: "lightning", amount });
+    const invoice = await wallet.receiveLightning(amount);
     await QRCode.toCanvas(document.getElementById("invoice"), invoice!);
   }
   receiveAmountEl.value = "";
@@ -115,9 +72,9 @@ fromEvent(sendFormEl, "submit").subscribe(async (e) => {
   const amount = sendAmountEl.valueAsNumber;
   const invoice = sendInvoiceEl.value;
   if (invoice) {
-    await wallet.send({ type: "lightning", pr: invoice });
+    await wallet.sendLightning(invoice);
   } else {
-    const token = await wallet.send({ type: "ecash", amount });
+    const token = await wallet.sendEcash(amount);
     await QRCode.toCanvas(document.getElementById("invoice"), token!);
   }
   receiveAmountEl.value = "";

@@ -1,20 +1,16 @@
 <script lang="ts">
   import Wallet from "$lib/components/wallet.svelte";
   import { createWalletStore } from "@cashu-wallet/svelte";
-  const wallet = createWalletStore(
-    "my-wallet",
-    "https://mint.minibits.cash/Bitcoin",
-    {
-      workerInterval: 3000,
-    }
-  );
+  const wallet = createWalletStore("my-wallet", "http://localhost:3338", {
+    workerInterval: 3000,
+  });
 
   let bet = 1;
   let result = "";
   let fundServerToken: string | undefined;
 
   const handleSubmit = async () => {
-    const token = await wallet.send({ type: "ecash", amount: bet });
+    const token = await wallet.sendEcash(bet);
     const response = await fetch("/bet", {
       method: "POST",
       body: JSON.stringify({ token }),
@@ -25,7 +21,7 @@
       return;
     }
     if (r.token) {
-      await wallet.receive({ type: "ecash", token: r.token });
+      await wallet.receiveEcash(r.token);
       result = `You won, server rolled ${r.serverRoll} and you rolled ${r.clientRoll}`;
     } else {
       result = `You lost, server rolled ${r.serverRoll} and you rolled ${r.clientRoll}`;
