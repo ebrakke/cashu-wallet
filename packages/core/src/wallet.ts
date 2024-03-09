@@ -19,7 +19,6 @@ import {
   getEncodedToken,
   getDecodedToken,
 } from "@cashu/cashu-ts";
-import { decode } from "@gandlaf21/bolt11-decode";
 import type {
   AsyncStorageProvider,
   StorageProvider,
@@ -35,6 +34,7 @@ import {
   isEcashTransaction,
   isLightningTransaction,
 } from "./transaction";
+import { getLnInvoiceAmount } from "./utils";
 
 type ReceiveEcash = { type: "ecash"; token: string };
 type ReceiveLightning = { type: "lightning"; amount: number };
@@ -138,22 +138,6 @@ export class Wallet implements IWallet {
     } else {
       return await this.#sendLightning(payload.pr);
     }
-  }
-
-  /**
-   * Generates an invoice for the amount less fees. Useful if you want to swap tokens from another mint to this mint.
-   * @param amount
-   */
-  async swap(amount: number, to: Wallet) {
-    const invoice = await to.receive({ type: "lightning", amount }, false);
-    if (!invoice) {
-      throw new Error("Failed to generate invoice");
-    }
-    const fee = await this.#wallet.getFee(invoice);
-    if (amount - fee <= 0) {
-      throw new Error("Amount to swap is less than or equal to the fee");
-    }
-    return await to.receive({ type: "lightning", amount: amount - fee });
   }
 
   async getFee(pr: string) {
@@ -439,18 +423,4 @@ export class Wallet implements IWallet {
     const wallet = new Wallet(mintUrl, setter, opts, state);
     return wallet;
   }
-}
-
-export function getTokenAmount(token: string): number {
-  const decoded = getDecodedToken(token);
-  return decoded.token.reduce(
-    (acc, t) => acc + _.sumBy(t.proofs, (p) => p.amount),
-    0
-  );
-}
-
-function getLnInvoiceAmount(pr: string): number {
-  const decoded = decode(pr);
-  const value = decoded.sections.find((s) => s.name === "amount")?.value;
-  return Math.floor(parseInt(value) / 1000);
 }

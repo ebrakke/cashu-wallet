@@ -1,5 +1,5 @@
 import {
-  Wallet,
+  MultiMintWallet,
   type WalletState,
   type AsyncStorageProvider,
 } from "@cashu-wallet/core";
@@ -43,20 +43,25 @@ class RedisStorageProvider implements AsyncStorageProvider {
   }
 }
 
-let serverWallet: Wallet | null = null;
+let serverWallet: MultiMintWallet | null = null;
 async function getOrCreateServerWallet() {
   if (serverWallet) {
     return serverWallet;
   }
-  const storageProvider = new RedisStorageProvider(
-    "server-minibits-wallet",
-    REDIS_CONNECTION_STRING
-  );
-  serverWallet = await Wallet.loadFromAsyncStorage(
-    "https://mint.minibits.cash/Bitcoin",
+  serverWallet = new MultiMintWallet();
+  // const storageProvider = new RedisStorageProvider(
+  //   "server-minibits-wallet",
+  //   REDIS_CONNECTION_STRING
+  // );
+  const storageProvider = new FileStorageProvider("server-localhost-wallet");
+  await serverWallet.addWalletWithAsyncStorage(
+    // "https://mint.minibits.cash/Bitcoin",
+    "https://localhost:3338",
     storageProvider
   );
-  console.log("Server wallet balance: ", serverWallet.state.balance);
+  // const wallet = mmWallet.getWallet("https://mint.minibits.cash/Bitcoin");
+  const wallet = serverWallet.getWallet("https://localhost:3338");
+  console.log("Server wallet balance: ", wallet.state.balance);
   return serverWallet;
 }
 
