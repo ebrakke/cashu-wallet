@@ -11,6 +11,6 @@
 </script>
 
 <Nav />
-<div class="container max-w-2xl mx-auto">
+<div class="container max-w-2xl mx-auto md:px-0 px-3">
 	<slot />
 </div>

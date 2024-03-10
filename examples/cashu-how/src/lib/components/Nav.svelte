@@ -15,7 +15,6 @@
 			<a href="/tutorial">Tutorial</a>
 			<a href="/fund">Donate</a>
 		</div>
-		<a href="/">cashu.how</a>
 		<div><button on:click={() => (showWallet = !showWallet)}>Wallet ({balance})</button></div>
 	</div>
 	{#if showWallet}
