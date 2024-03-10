@@ -20,6 +20,10 @@
 	$: spentTokens = Object.values($state.transactions)
 		.filter(isEcashTransaction)
 		.filter((ts) => ts.isPaid === true);
+
+	const handleCopy = (text: string) => {
+		navigator.clipboard.writeText(text);
+	};
 </script>
 
 <div>
@@ -43,7 +47,10 @@
 							<td>{invoice.amount}</td>
 							<td>{invoice.pr.slice(0, 20)}...</td>
 							<td>{invoice.isPaid}</td>
-							<td><button on:click={() => wallet.revokeInvoice(invoice.pr)}>Cancel</button></td>
+							<td>
+								<button on:click={() => handleCopy(invoice.pr)}>Copy</button>
+								<button on:click={() => wallet.revokeInvoice(invoice.pr)}>Cancel</button>
+							</td>
 						</tr>
 					{/each}
 					{#each paidInvoices as invoice}
@@ -52,6 +59,9 @@
 							<td>{invoice.amount}</td>
 							<td>{invoice.pr.slice(0, 20)}...</td>
 							<td>{invoice.isPaid}</td>
+							<td>
+								<button on:click={() => handleCopy(invoice.pr)}>Copy</button>
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -76,7 +86,10 @@
 							<td>{token.amount}</td>
 							<td>{token.token.slice(0, 20)}...</td>
 							<td>{token.isPaid}</td>
-							<td><button on:click={() => wallet.receiveEcash(token.token)}>Claim</button></td>
+							<td class="flex gap-x-1">
+								<button on:click={() => wallet.receiveEcash(token.token)}>Claim</button>
+								<button on:click={() => handleCopy(token.token)}>Copy</button>
+							</td>
 						</tr>
 					{/each}
 					{#each spentTokens as token}
@@ -85,6 +98,9 @@
 							<td>{token.amount}</td>
 							<td>{token.token.slice(0, 20)}...</td>
 							<td>{token.isPaid}</td>
+							<td>
+								<button on:click={() => handleCopy(token.token)}>Copy</button>
+							</td>
 						</tr>
 					{/each}
 				</tbody>

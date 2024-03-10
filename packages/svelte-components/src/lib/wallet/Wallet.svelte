@@ -9,6 +9,8 @@
 	let state = wallet.state;
 	let page: 'home' | 'receive' | 'send' | 'scan' | 'history' = 'home';
 
+	$: pending = Object.values($state.transactions).filter((ts) => ts.isPaid === false).length;
+
 	const handleScan = async (result: string) => {
 		if (result.startsWith('cashu')) {
 			const t = getDecodedToken(result);
@@ -26,12 +28,14 @@
 
 <div class="flex flex-col items-center cashu-wallet">
 	<div class="flex flex-col gap-y-1 items-center">
-		<div class="flex flex-col items-center">
+		<div class="flex flex-col items-center gap-y-1">
 			<p class="text-xs">{$state.mintUrl}</p>
 			{#if page === 'history'}
 				<button on:click={() => (page = 'home')}>Back</button>
 			{:else}
-				<button on:click={() => (page = 'history')}>History</button>
+				<button on:click={() => (page = 'history')}
+					>History {pending > 0 ? `(${pending})` : ''}</button
+				>
 			{/if}
 		</div>
 		<p class="text-4xl">{$state.balance}</p>
