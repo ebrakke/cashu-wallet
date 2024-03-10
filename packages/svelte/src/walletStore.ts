@@ -1,4 +1,4 @@
-import { readable } from "svelte/store";
+import { Readable, derived, get, writable } from "svelte/store";
 import {
   LocalStorageProvider,
   SingleMintWallet,
@@ -11,29 +11,36 @@ export function createWalletStore(
   mintUrl: string,
   opts?: WalletOptions
 ) {
-  const storageProvider = new LocalStorageProvider<WalletState>(
-    `${id}-${mintUrl}`
-  );
-  const wallet = SingleMintWallet.loadFromSyncStorage(
-    id,
-    mintUrl,
-    storageProvider,
-    opts
-  );
-  const state = readable(wallet.state, (set) => {
-    const subscription = wallet.state$.subscribe(set);
-    return () => subscription.unsubscribe();
-  });
+  const wallet = writable<SingleMintWallet>();
+  const init = () => {
+    const storageProvider = new LocalStorageProvider<WalletState>(
+      `${id}-${mintUrl}`
+    );
+    const _w = SingleMintWallet.loadFromSyncStorage(
+      id,
+      mintUrl,
+      storageProvider,
+      opts
+    );
+    wallet.set(_w);
+  }
 
+  const state: Readable<WalletState> = derived(wallet, ($w, set) => {
+    if ($w) {
+      const subscription = $w.state$.subscribe(set);
+      return () => subscription.unsubscribe();
+    }
+  });
   return {
     state,
-    mintUrl: wallet.mintUrl,
-    sendEcash: (amount: number) => wallet.sendEcash(amount),
-    sendLightning: (pr: string) => wallet.sendLightning(pr),
-    receiveEcash: (token: string) => wallet.receiveEcash(token),
-    receiveLightning: (amount: number) => wallet.receiveLightning(amount),
-    swap: (token: string) => wallet.swap(token),
-    revokeInvoice: (pr: string) => wallet.revokeInvoice(pr),
+    get mintUrl() {return get(wallet).mintUrl},
+    init,
+    sendEcash: (amount: number) => get(wallet).sendEcash(amount),
+    sendLightning: (pr: string) => get(wallet).sendLightning(pr),
+    receiveEcash: (token: string) => get(wallet).receiveEcash(token),
+    receiveLightning: (amount: number) => get(wallet).receiveLightning(amount),
+    swap: (token: string) => get(wallet).swap(token),
+    revokeInvoice: (pr: string) => get(wallet).revokeInvoice(pr),
   };
 }
 

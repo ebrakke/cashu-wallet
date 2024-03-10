@@ -29,7 +29,7 @@
 <div class="flex flex-col items-center cashu-wallet">
 	<div class="flex flex-col gap-y-1 items-center">
 		<div class="flex flex-col items-center gap-y-1">
-			<p class="text-xs">{$state.mintUrl}</p>
+			<p class="text-xs">{wallet.mintUrl}</p>
 			{#if page === 'history'}
 				<button on:click={() => (page = 'home')}>Back</button>
 			{:else}

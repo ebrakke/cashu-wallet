@@ -79,7 +79,7 @@
 </script>
 
 <div>
-  <p>Mint: {$state.mintUrl}</p>
+  <p>Mint: {wallet.mintUrl}</p>
   <p>Balance: {$state.balance}</p>
   <div>
     <p>Receive</p>
