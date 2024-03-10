@@ -1,10 +1,13 @@
 <script lang="ts">
   import {
+    getDecodedToken,
     isEcashTransaction,
     isLightningTransaction,
   } from "@cashu-wallet/core";
   import type { WalletStore } from "@cashu-wallet/svelte";
   import * as QRCode from "qrcode";
+  import { openModal } from "svelte-modals";
+  import ScanModal from "./ScanModal.svelte";
   export let wallet: WalletStore;
   let state = wallet.state;
 
@@ -21,6 +24,23 @@
   $: pendingTokens = Object.values($state.transactions)
     .filter(isEcashTransaction)
     .filter((ts) => ts.isPaid === false);
+
+  const handleScan = () => {
+    openModal(ScanModal, { onScan: handleScanResult });
+  };
+
+  const handleScanResult = async (result: string) => {
+    console.log(result);
+    if (result.startsWith("cashu")) {
+      getDecodedToken(result);
+      await wallet.receiveEcash(result);
+      return;
+    }
+    if (result.toLowerCase().startsWith("ln")) {
+      await wallet.sendLightning(result);
+      return;
+    }
+  };
 
   const handleReceive = async () => {
     if (receiveAmount) {
@@ -46,7 +66,7 @@
     }
   };
 
-  const handleScan = (text: string) => {
+  const handleToQRCode = (text: string) => {
     scan = true;
     setTimeout(() => {
       QRCode.toCanvas(document.getElementById("qr"), text);
@@ -63,6 +83,7 @@
   <p>Balance: {$state.balance}</p>
   <div>
     <p>Receive</p>
+    <button on:click={handleScan}>Scan</button>
     <form on:submit|preventDefault={handleReceive}>
       <input type="number" placeholder="sats" bind:value={receiveAmount} />
       <input type="text" placeholder="ecash" bind:value={receiveToken} />
@@ -90,7 +111,10 @@
             <span>{invoice.amount}</span>
             <span>{invoice.pr.slice(0, 10)}...</span>
             <button on:click={() => handleCopy(invoice.pr)}>Copy</button>
-            <button on:click={() => handleScan(invoice.pr)}>Scan</button>
+            <button on:click={() => handleToQRCode(invoice.pr)}>Scan</button>
+            <button on:click={() => wallet.revokeInvoice(invoice.pr)}
+              >Delete</button
+            >
           </li>
         {/each}
       </ul>
@@ -105,7 +129,10 @@
             <span>{token.amount}</span>
             <span>{token.token.slice(0, 10)}...</span>
             <button on:click={() => handleCopy(token.token)}>Copy</button>
-            <button on:click={() => handleScan(token.token)}>Scan</button>
+            <button on:click={() => handleToQRCode(token.token)}>Scan</button>
+            <button on:click={() => wallet.receiveEcash(token.token)}
+              >Revoke</button
+            >
           </li>
         {/each}
       </ul>

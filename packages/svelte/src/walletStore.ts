@@ -31,6 +31,8 @@ export function createWalletStore(
     sendLightning: (pr: string) => wallet.sendLightning(pr),
     receiveEcash: (token: string) => wallet.receiveEcash(token),
     receiveLightning: (amount: number) => wallet.receiveLightning(amount),
+    swap: (token: string) => wallet.swap(token),
+    revokeInvoice: (pr: string) => wallet.revokeInvoice(pr),
   };
 }
 

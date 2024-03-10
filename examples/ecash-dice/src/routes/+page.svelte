@@ -1,12 +1,17 @@
 <script lang="ts">
-  import Wallet from "$lib/components/wallet.svelte";
+  import Wallet from "$lib/components/Wallet.svelte";
   import { createWalletStore } from "@cashu-wallet/svelte";
-  const wallet = createWalletStore("my-wallet", "http://localhost:3338", {
-    workerInterval: 3000,
-  });
+  const wallet = createWalletStore(
+    "my-wallet",
+    "https://mint.minibits.cash/Bitcoin",
+    {
+      workerInterval: 3000,
+    }
+  );
 
   let bet = 1;
   let result = "";
+  let error: string | undefined;
   let fundServerToken: string | undefined;
 
   const handleSubmit = async () => {
@@ -16,8 +21,9 @@
       body: JSON.stringify({ token }),
     });
     const r = await response.json();
-    if (r.error) {
-      result = `Error: ${r.error}`;
+    if (!response.ok) {
+      error = r.message;
+      result = "";
       return;
     }
     if (r.token) {
@@ -53,6 +59,9 @@
   <hr />
   <Wallet {wallet} />
   <h3>{result}</h3>
+  {#if error}
+    <p style="color: red">{error}</p>
+  {/if}
   <div>
     <h3>Place your bet</h3>
     <form on:submit|preventDefault={handleSubmit}>

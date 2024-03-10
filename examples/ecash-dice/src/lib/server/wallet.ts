@@ -49,14 +49,10 @@ async function getOrCreateServerWallet() {
     return serverWallet;
   }
   serverWallet = await SingleMintWallet.loadFromAsyncStorage(
-    "localhost-1",
-    "http://localhost:3338",
-    new FileStorageProvider("server-localhost-wallet")
+    "server-minibits-wallet",
+    "https://mint.minibits.cash/Bitcoin",
+    new RedisStorageProvider("server-minibits-wallet", REDIS_CONNECTION_STRING)
   );
-  // const storageProvider = new RedisStorageProvider(
-  //   "server-minibits-wallet",
-  //   REDIS_CONNECTION_STRING
-  // );
   console.log("Server wallet balance: ", serverWallet.state.balance);
   return serverWallet;
 }

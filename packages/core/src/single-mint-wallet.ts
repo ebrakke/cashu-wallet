@@ -119,6 +119,11 @@ export class SingleMintWallet implements _SingleMintWallet {
    * @param token
    */
   async receiveEcash(token: string): Promise<void> {
+    const decodedToken = getDecodedToken(token);
+    const mintUrl = getTokenMint(decodedToken);
+    if (mintUrl !== this.mintUrl) {
+      throw new Error(`invalid mint ${mintUrl} for wallet ${this.mintUrl}`);
+    }
     const response = await this.#wallet.receive(token);
     const proofs = response.token.token.map((t) => t.proofs).flat();
     this.#proofs$$.next([...this.#proofs, ...proofs]);
@@ -235,6 +240,18 @@ export class SingleMintWallet implements _SingleMintWallet {
     if (!pr) throw new Error("Failed to get swap fee");
     const fee = await untrustedWallet.getFee(pr);
     return fee;
+  }
+
+  async revokeInvoice(pr: string) {
+    const transaction = this.#transactions[pr];
+    if (!transaction) return;
+    const sub = this.#subscriptions.get(pr);
+    if (sub) sub.unsubscribe();
+    const newTransactions = { ...this.#transactions };
+    delete newTransactions[pr];
+    this.#transactions$$.next({
+      ...newTransactions,
+    });
   }
 
   /**

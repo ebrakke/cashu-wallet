@@ -1,25 +1,36 @@
 import { getOrCreateServerWallet } from "$lib";
-import { getDecodedToken, getTokenAmount } from "@cashu-wallet/core";
-import { json, type RequestHandler } from "@sveltejs/kit";
+import {
+  getDecodedToken,
+  getTokenAmount,
+  getTokenMint,
+} from "@cashu-wallet/core";
+import { error, json, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ request }) => {
   const wallet = await getOrCreateServerWallet();
   if (wallet.state.balance === 0) {
-    return json({ error: "Server wallet is empty" });
+    return error(500, "Server wallet is empty");
   }
   const { token } = (await request.json()) as {
     token: string;
   };
 
   if (!token) {
-    throw json({ error: "Invalid request" }, { status: 400 });
+    throw error(400, "Token required");
+  }
+  const tokenMint = getTokenMint(getDecodedToken(token));
+  if (tokenMint !== wallet.mintUrl) {
+    throw error(
+      400,
+      `Invalid ecash token. This server only accepts ${wallet.mintUrl} tokens.`
+    );
   }
   const betAmount = getTokenAmount(getDecodedToken(token));
   if (betAmount > wallet.state.balance * 2) {
-    return json({ error: "Insufficient server funds" }, { status: 400 });
+    return error(500, "Insufficient Server funds");
   }
   if (betAmount > 100) {
-    return json({ error: "Maximum bet is 100" }, { status: 400 });
+    return error(400, "Maximum bet amount is 100");
   }
   // Claim token for server wallet
   try {
@@ -35,6 +46,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
     return json({ win: 0, serverRoll, clientRoll });
   } catch (e) {
-    return json({ error: "Invalid token" }, { status: 400 });
+    console.error(e);
+    return error(500, "An unknown error has occurred. Please try again.");
   }
 };
