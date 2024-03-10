@@ -19,9 +19,19 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const wallet = createWalletStore("local", "http://localhost:3338");
+const minitbitsWallets = createWalletStore(
+  "minibits",
+  "https://mint.minibits.cash/Bitcoin"
+);
 
 export const Default: Story = {
   args: {
     wallet,
+  },
+};
+
+export const Minibits: Story = {
+  args: {
+    wallet: minitbitsWallets,
   },
 };

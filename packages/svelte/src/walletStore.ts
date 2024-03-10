@@ -27,6 +27,7 @@ export function createWalletStore(
 
   return {
     state,
+    mintUrl: wallet.mintUrl,
     sendEcash: (amount: number) => wallet.sendEcash(amount),
     sendLightning: (pr: string) => wallet.sendLightning(pr),
     receiveEcash: (token: string) => wallet.receiveEcash(token),

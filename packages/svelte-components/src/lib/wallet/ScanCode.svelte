@@ -1,47 +1,66 @@
-<script lang="ts">
-  import QrScanner from "qr-scanner";
-  import { onMount } from "svelte";
+<script>
+	// @ts-nocheck
+	import QrScanner from 'qr-scanner';
+	import { onMount } from 'svelte';
 
-  export let onCancel: () => void;
+	/**
+	 * @type {() => void}
+	 */
+	export let onCancel;
+	/**
+	 * @type {(result: string) => void}
+	 */
+	export let onScan;
 
-  let scanner: QrScanner | undefined;
-  let videoElement: HTMLVideoElement;
-  onMount(async () => {
-    videoElement = document.querySelector("video")!;
-    scanner = new QrScanner(videoElement, handleScanResult, {
-      returnDetailedScanResult: true,
-      highlightScanRegion: true,
-      highlightCodeOutline: true,
-      onDecodeError: () => {},
-    });
-    await scanner.start();
-  });
+	/**
+	 * @type {QrScanner.default | undefined}
+	 */
+	let scanner;
+	/**
+	 * @type {HTMLVideoElement}
+	 */
+	let videoElement;
+	onMount(async () => {
+		videoElement = document.querySelector('video');
+		scanner = new QrScanner(videoElement, handleScanResult, {
+			returnDetailedScanResult: true,
+			highlightScanRegion: true,
+			highlightCodeOutline: true,
+			onDecodeError: () => {}
+		});
+		await scanner.start();
+	});
 
-  const handleScanResult = (result: QrScanner.ScanResult) => {
-    console.log(result);
-    stop();
-  };
+	/**
+	 *
+	 * @param {import('qr-scanner').default.ScanResult} result
+	 */
+	const handleScanResult = (result) => {
+		onScan(result.data);
+		stop();
+	};
 
-  const stop = () => {
-    scanner?.stop();
-    const mediaStream = videoElement.srcObject;
-    if (mediaStream instanceof MediaStream) {
-      const tracks = mediaStream.getTracks();
-      tracks.forEach((track) => {
-        track.stop();
-      });
+	const stop = () => {
+		scanner?.stop();
+		const mediaStream = videoElement.srcObject;
+		if (mediaStream instanceof MediaStream) {
+			const tracks = mediaStream.getTracks();
+			tracks.forEach((track) => {
+				track.stop();
+			});
 
-      videoElement.srcObject = null;
-    }
-  };
+			videoElement.srcObject = null;
+		}
+	};
 
-  const handleCancel = () => {
-    stop();
-    onCancel();
-  };
+	const handleCancel = () => {
+		stop();
+		onCancel();
+	};
 </script>
 
 <div class="w-[300px] flex flex-col justify-center">
-  <video style="width: 100%"></video>
-  <button on:click={handleCancel} class="mt-2">Cancel</button>
+	<!-- svelte-ignore a11y-media-has-caption -->
+	<video style="width: 100%"></video>
+	<button on:click={handleCancel} class="mt-2">Cancel</button>
 </div>
