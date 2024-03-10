@@ -1,4 +1,5 @@
 import { SingleMintWallet, type WalletState, type AsyncStorageProvider } from '@cashu-wallet/core';
+import { PUBLIC_MINT_ID, PUBLIC_MINT_URL } from '$env/static/public';
 import * as fs from 'fs/promises';
 
 class FileStorageProvider implements AsyncStorageProvider<WalletState> {
@@ -26,9 +27,9 @@ async function getOrCreateServerWallet() {
 		return serverWallet;
 	}
 	serverWallet = await SingleMintWallet.loadFromAsyncStorage(
-		'server-localhost-wallet',
-		'http://localhost:3338',
-		new FileStorageProvider('server-localhost-wallet.txt')
+		`server-${PUBLIC_MINT_ID}-wallet`,
+		PUBLIC_MINT_URL,
+		new FileStorageProvider(`server-${PUBLIC_MINT_ID}-wallet.txt`)
 	);
 	console.log('Server wallet balance: ', serverWallet.state.balance);
 	return serverWallet;

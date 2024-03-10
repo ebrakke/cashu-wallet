@@ -14,7 +14,8 @@
 	"dependencies": {
 		"@cashu-wallet/core": "workspace:*",
 		"@cashu-wallet/svelte": "workspace:*",
-		"@cashu-wallet/svelte-components": "workspace:*"
+		"@cashu-wallet/svelte-components": "workspace:*",
+		"rxjs": "^7.8.1"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.0.0",

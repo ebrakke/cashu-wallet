@@ -23,6 +23,9 @@ importers:
       '@cashu-wallet/svelte-components':
         specifier: workspace:*
         version: link:../../packages/svelte-components
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.1
     devDependencies:
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0

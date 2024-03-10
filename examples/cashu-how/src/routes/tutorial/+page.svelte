@@ -2,10 +2,11 @@
 	import { wallet } from '$lib';
 	const handleRequestFunding = async () => {
 		const res = await fetch('/api/request-tokens?amount=10');
+		const { token, message } = await res.json();
 		if (!res.ok) {
-			throw new Error('Failed to request funding');
+			alert(message);
+			return;
 		}
-		const { token } = await res.json();
 		await wallet.receiveEcash(token);
 	};
 </script>
