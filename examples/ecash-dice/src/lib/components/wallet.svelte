@@ -143,6 +143,3 @@
     <button on:click={() => (scan = false)}>Close</button>
   {/if}
 </div>
-
-<style>
-</style>
