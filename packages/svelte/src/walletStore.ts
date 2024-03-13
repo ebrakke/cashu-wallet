@@ -30,7 +30,7 @@ export function createWalletStore(
       const subscription = $w.state$.subscribe(set);
       return () => subscription.unsubscribe();
     }
-  });
+  }, {balance: 0, proofs: [], transactions: {}} as WalletState);
   return {
     state,
     get mintUrl() {return get(wallet).mintUrl},

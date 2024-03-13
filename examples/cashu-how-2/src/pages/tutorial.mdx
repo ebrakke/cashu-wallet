@@ -1,0 +1,76 @@
+---
+layout: '../layouts/Page.astro'
+---
+import RequestFundButton from '@components/RequestFundButton.svelte'
+
+
+## Guide to Using Cashu
+
+In this tutorial we will cover:
+* Funding your ecash wallet
+* Understanding mints
+* Sending ecash to others
+* Receiving ecash
+* Using ecash to pay lightning invoices
+
+## Terminology
+**Wallet**: A piece of software that stores your ecash tokens.
+ 
+**Mint**: A service that handles the issuance of ecash. It's literally like a bank. You deposit sats with the mint, and it will issue ecash tokens for the same amount in return.
+
+**Ecash**: A string of text that when presented to the mint can be redeemed for sats. It's like a digital banknote.
+
+**Bearer Asset**: A type of asset that is owned by whoever holds it. If you have a $10 bill in your wallet, you own it. If you lose it, it's gone. Ecash is a bearer asset.
+
+### Important Notes
+* When you Deposit sats with a mint, you are trusting them to not run away with your money. If you're using a mint that you don't trust, you should only deposit small amounts of sats at a time.
+* When you receive ecash, you should treat it like cash. If you lose it, it's gone. If someone else gets a hold of it, they can redeem it for sats.
+* All of this software is still experimental! Do not deposit amounts that you are not comfortable losing.
+
+## Funding Your Wallet
+Let's kick things off by funding your wallet:
+
+* Click on the "Wallet" button in the navigation to open your wallet.
+
+* To fund your wallet, you'll need a lightning wallet. Popular options include Strike, Cashapp, and Wallet of Satoshi. If you prefer not to set up a lightning wallet, you can <RequestFundButton client:load>click here</RequestFundButton> to receive some sats directly from the server.
+
+* Click on your wallet and select "Receive." Enter the desired amount (e.g., 10 sats) and click "Receive" to generate a lightning invoice.
+
+* Use your chosen lightning wallet to scan the QR code generated. Once the payment is received, your wallet balance will reflect the funded amount.
+
+## What did I just do?
+Now that you've funded your wallet, let's unpack what you've done:
+
+Your wallet now contains ecash equivalent to the funded amount.
+
+Ecash is stored locally in your browser. Clearing your browser's local storage will result in the loss of ecash.
+
+Ecash is represented as a "Proof," containing essential details for redemption.
+```json
+{
+    "id": "eGnEWtdJ0PIM",
+    "amount": 8,
+    "secret": "qieRBEGg0g9i95w0EWHL7OjthrGAoIQlgxvUdhlwjM0=",
+    "C": "0215a55b04787ad2a1c9621a94692b60265f9274633cd90e04c4e73a8bf2b03fad"
+}
+```
+Generally, you'll see an encoded version of this when sending ecash. It'll look something like this
+```
+cashuAeyJ0b2tlbiI6W3sibWludCI6Imh0dHA6Ly9sb2NhbGhvc3Q6MzMzOCIsInByb29mcyI6W3siaWQiOiIwMDlhMWYyOTMyNTNlNDFlIiwiYW1vdW50Ijo0LCJzZWNyZXQiOiIrWkl3NURhY2NxOWs0M0kwcGRlb2YxTTdZdVkrYzF4TWorc1pmSTZ3NHdBPSIsIkMiOiIwMjQ4MTAyOWM5ZWIwYjdhZTMxZmM4ODZhOGFlYjg4NmQ4NTUyZjVlNjgyMjc5MjAxYjIxMjAyYjk3ZTNjZjRmOWUifV19XX0
+```
+
+Redemption involves presenting this proof to the mint, either for destruction and reissue or to pay lightning invoices.
+
+## Sending Ecash
+Now, let's send this ecash.
+
+* Click on the "Wallet" button to open your wallet.
+
+* Select "Send" and enter the desired amount (e.g., 4 sats). This generates a QR code for the recipient.
+
+* If the recipient has a Cashu wallet or another compatible wallet (e.g., eNuts, minitbits), they can scan the QR code to redeem the ecash.
+* * You can use a web based browser like <a href="https://cashu.me" target="_blank" rel="noopener">cashu.me</a>
+
+* Open the "History" potion of your wallet to check the status of the token you just sent. When you redeem it in another wallet, you should see the paid status update.
+
+

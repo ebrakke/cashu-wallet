@@ -1,0 +1,1 @@
+{"balance":0,"proofs":[],"mintUrl":"http://localhost:3338","transactions":{}}
