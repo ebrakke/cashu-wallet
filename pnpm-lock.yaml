@@ -14,6 +14,15 @@ importers:
 
   examples/blossom-server:
     dependencies:
+      '@cashu-wallet/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@cashu-wallet/svelte':
+        specifier: workspace:*
+        version: link:../../packages/svelte
+      '@cashu-wallet/svelte-components':
+        specifier: workspace:*
+        version: link:../../packages/svelte-components
       better-sqlite3:
         specifier: ^9.4.3
         version: 9.4.3

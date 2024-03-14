@@ -25,6 +25,9 @@
 	"type": "module",
 	"dependencies": {
 		"better-sqlite3": "^9.4.3",
+		"@cashu-wallet/core": "workspace:*",
+		"@cashu-wallet/svelte": "workspace:*",
+		"@cashu-wallet/svelte-components": "workspace:*",
 		"blossom-client": "^0.2.1",
 		"nostr-tools": "^2.3.1"
 	}

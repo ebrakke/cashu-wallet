@@ -5,6 +5,7 @@ node_modules
 /package
 files
 fileMap.json
+*.txt
 .env
 .env.*
 !.env.example

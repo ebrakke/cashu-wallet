@@ -14,7 +14,6 @@ type BlobFile = {
 
 class FileService {
 	#fileMap = new Map<string, BlobFile>();
-	#filesByUser = new Map<string, BlobFile[]>();
 	constructor() {
 		this.#loadSync();
 	}
@@ -33,6 +32,16 @@ class FileService {
 		return this.getByHash(hash);
 	}
 
+	async listByPubkey(pubkey: string): Promise<BlobDescriptor[]> {
+		const files: BlobFile[] = [];
+		for (const file of this.#fileMap.values()) {
+			if (file.owner === pubkey) {
+				files.push(file);
+			}
+		}
+		return files.map((f) => this.toBlobDescriptor(f));
+	}
+
 	async saveFile(owner: string, file: Blob, name?: string): Promise<BlobFile> {
 		const created = Math.floor(Date.now() / 1000);
 		const buffer = await file.arrayBuffer();
@@ -47,7 +56,6 @@ class FileService {
 			name
 		} satisfies BlobFile;
 		this.#fileMap.set(hash, blobFile);
-		this.#filesByUser.set(owner, [...(this.#filesByUser.get(owner) || []), blobFile]);
 		await this.#persist();
 		return blobFile;
 	}
