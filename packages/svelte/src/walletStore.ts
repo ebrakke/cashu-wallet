@@ -23,7 +23,7 @@ export function createWalletStore(
       opts
     );
     wallet.set(_w);
-  }
+  };
 
   const state: Readable<WalletState> = derived(wallet, ($w, set) => {
     if ($w) {
@@ -33,7 +33,7 @@ export function createWalletStore(
   });
   return {
     state,
-    get mintUrl() {return get(wallet).mintUrl},
+    mintUrl,
     init,
     sendEcash: (amount: number) => get(wallet).sendEcash(amount),
     sendLightning: (pr: string) => get(wallet).sendLightning(pr),
@@ -41,6 +41,7 @@ export function createWalletStore(
     receiveLightning: (amount: number) => get(wallet).receiveLightning(amount),
     swap: (token: string) => get(wallet).swap(token),
     revokeInvoice: (pr: string) => get(wallet).revokeInvoice(pr),
+    checkPending: () => get(wallet).checkPendingTransactions(),
   };
 }
 

@@ -1,15 +1,4 @@
-import {
-  BehaviorSubject,
-  Observable,
-  Subscription,
-  combineLatest,
-  filter,
-  interval,
-  map,
-  retry,
-  switchMap,
-  take,
-} from "rxjs";
+import { BehaviorSubject, Observable, combineLatest, map } from "rxjs";
 import {
   EcashTransaction,
   LightningTransaction,
@@ -33,6 +22,7 @@ import {
   type Proof,
 } from "@cashu/cashu-ts";
 import { getLnInvoiceAmount, getTokenAmount, getTokenMint } from "./utils";
+import { Poller } from "./poller";
 
 export interface WalletState {
   balance: number;
@@ -54,6 +44,7 @@ interface _SingleMintWallet {
 
 export interface WalletOptions {
   workerInterval?: number;
+  retryAttempts?: number;
   initialState?: WalletState;
 }
 
@@ -64,27 +55,35 @@ export class SingleMintWallet implements _SingleMintWallet {
   #proofs$$: BehaviorSubject<Proof[]> = new BehaviorSubject([] as Proof[]);
   #transactions$$: BehaviorSubject<Record<string, Transaction>> =
     new BehaviorSubject({});
-  #subscriptions: Map<string, Subscription> = new Map();
   #wallet: CashuWallet;
-  WORKER_INTERVAL: number;
+  #poller: Poller;
   constructor(
     id: string,
     mintUrl: string,
     storage: StorageSetter<WalletState>,
-    opts?: WalletOptions
+    opts?: WalletOptions,
   ) {
     const mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(mint);
     this.id = id;
     this.mintUrl = mintUrl;
     this.#storage = storage;
-    this.WORKER_INTERVAL = opts?.workerInterval || 1000;
+    this.#poller = new Poller(
+      mintUrl,
+      opts?.workerInterval,
+      opts?.retryAttempts,
+    );
     if (opts?.initialState) {
       this.#proofs$$.next(opts.initialState.proofs);
       this.#transactions$$.next(opts.initialState.transactions);
     }
+    this.#poller.invoicePaidNotifier$.subscribe((invoice) =>
+      this.#handleLightningInvoicePaid(invoice),
+    );
+    this.#poller.proofSpentNotifier$.subscribe((txns) =>
+      this.#handleProofsSpent(txns),
+    );
     this.#setupPersistence();
-    this.#initializeWorkers();
   }
 
   /**
@@ -109,7 +108,7 @@ export class SingleMintWallet implements _SingleMintWallet {
         proofs,
         mintUrl: this.mintUrl,
         transactions,
-      }))
+      })),
     );
   }
   /**
@@ -148,15 +147,11 @@ export class SingleMintWallet implements _SingleMintWallet {
         amount,
         hash: response.hash,
       });
-      const invoiceChecker$ = this.#createLightningWorker$(transaction);
       this.#transactions$$.next({
         ...this.#transactions,
         [transaction.pr]: transaction,
       });
-      const sub = invoiceChecker$.subscribe((proofs) =>
-        this.#handleLightningTransactionPaid(transaction, proofs)
-      );
-      this.#subscriptions.set(transaction.pr, sub);
+      this.#poller.addInvoice(transaction);
     }
     return response.pr;
   }
@@ -182,11 +177,7 @@ export class SingleMintWallet implements _SingleMintWallet {
       ...this.#transactions,
       [encodedToken]: transaction,
     });
-    const tokenChecker$ = this.#createEcashWorker$(transaction);
-    const sub = tokenChecker$.subscribe(() =>
-      this.#handleTokenPaid(transaction)
-    );
-    this.#subscriptions.set(encodedToken, sub);
+    this.#poller.addEcash(transaction);
     return encodedToken;
   }
 
@@ -202,7 +193,7 @@ export class SingleMintWallet implements _SingleMintWallet {
     }
     const { returnChange, send } = await this.#wallet.send(
       amount + fee,
-      this.#proofs
+      this.#proofs,
     );
     await this.#wallet.payLnInvoice(pr, send);
     this.#proofs$$.next(returnChange);
@@ -245,8 +236,6 @@ export class SingleMintWallet implements _SingleMintWallet {
   async revokeInvoice(pr: string) {
     const transaction = this.#transactions[pr];
     if (!transaction) return;
-    const sub = this.#subscriptions.get(pr);
-    if (sub) sub.unsubscribe();
     const newTransactions = { ...this.#transactions };
     delete newTransactions[pr];
     this.#transactions$$.next({
@@ -254,67 +243,37 @@ export class SingleMintWallet implements _SingleMintWallet {
     });
   }
 
-  /**
-   * Checks with the mint to see if a lightning transaction has been paid (i.e. the tokens have been minted).
-   * When the transaction is paid, the wallet state is updated with the new proofs and the transaction is marked as paid.
-   * @param transaction
-   * @returns new proofs to add to the wallet
-   */
-  #createLightningWorker$({ amount, hash }: LightningTransaction) {
-    return interval(this.WORKER_INTERVAL).pipe(
-      switchMap(() => this.#wallet.requestTokens(amount, hash)),
-      retry(),
-      map((r) => r.proofs),
-      take(1)
-    );
+  async checkPendingTransactions() {
+    const pendingLightning = Object.values(this.#transactions)
+      .filter(isLightningTransaction)
+      .filter((t) => !t.isPaid);
+    const pendingEcash = Object.values(this.#transactions)
+      .filter(isEcashTransaction)
+      .filter((t) => !t.isPaid);
+
+    pendingEcash.forEach((t) => this.#poller.addEcash(t));
+    pendingLightning.forEach((t) => this.#poller.addInvoice(t));
   }
 
-  /**
-   * When a token is sent, a worker is created to check if the token has been spent.
-   * @param param0
-   * @returns
-   */
-  #createEcashWorker$({ token }: EcashTransaction): Observable<boolean> {
-    const parsedToken = getDecodedToken(token);
-    const proofs = parsedToken.token.map((t) => t.proofs).flat();
-    return interval(this.WORKER_INTERVAL).pipe(
-      switchMap(() => this.#wallet.checkProofsSpent(proofs)),
-      retry(),
-      filter((s) => s.length === proofs.length),
-      map(() => true),
-      take(1)
-    );
-  }
-
-  /**
-   * Updates the wallet state with the new proofs and marks the transaction as paid.
-   * @param invoice
-   * @param proofs
-   */
-  #handleLightningTransactionPaid(
-    invoice: LightningTransaction,
-    proofs: Proof[]
-  ) {
-    this.#proofs$$.next([...this.#proofs, ...proofs]);
-    const transaction = this.#transactions[invoice.pr];
-    if (!transaction) return;
+  #handleLightningInvoicePaid(invoice: {
+    invoice: LightningTransaction;
+    proofs: Proof[];
+  }) {
+    this.#proofs$$.next([...this.#proofs, ...invoice.proofs]);
     this.#transactions$$.next({
       ...this.#transactions,
-      [invoice.pr]: { ...invoice, isPaid: true },
+      [invoice.invoice.pr]: { ...invoice.invoice, isPaid: true },
     });
   }
 
-  /**
-   * Updates the wallet state with paid transaction
-   * @param param0
-   * @returns
-   */
-  #handleTokenPaid({ token }: EcashTransaction) {
-    const transaction = this.#transactions[token];
-    if (!transaction) return;
-    this.#transactions$$.next({
-      ...this.#transactions,
-      [token]: { ...transaction, isPaid: true },
+  #handleProofsSpent(txns: EcashTransaction[]) {
+    txns.forEach((t) => {
+      const transaction = this.#transactions[t.token];
+      if (!transaction) return;
+      this.#transactions$$.next({
+        ...this.#transactions,
+        [t.token]: { ...transaction, isPaid: true },
+      });
     });
   }
 
@@ -327,40 +286,13 @@ export class SingleMintWallet implements _SingleMintWallet {
     });
   }
 
-  /**
-   * When the wallet first loads, if there are pending transactions in storage, it will re-create the workers
-   * to check if the transactions have been paid.
-   */
-  #initializeWorkers() {
-    const pendingLightningTransactions = Object.values(this.#transactions)
-      .filter(isLightningTransaction)
-      .filter((t) => !t.isPaid);
-    const pendingEcashTransactions = Object.values(this.#transactions)
-      .filter(isEcashTransaction)
-      .filter((t) => !t.isPaid);
-
-    pendingLightningTransactions.forEach((t) => {
-      const sub = this.#createLightningWorker$(t).subscribe((proofs) =>
-        this.#handleLightningTransactionPaid(t, proofs)
-      );
-      this.#subscriptions.set(t.pr, sub);
-    });
-
-    pendingEcashTransactions.forEach((t) => {
-      const sub = this.#createEcashWorker$(t).subscribe(() =>
-        this.#handleTokenPaid(t)
-      );
-      this.#subscriptions.set(t.token, sub);
-    });
-  }
-
   // Static functions
 
   static async loadFromAsyncStorage(
     id: string,
     mintUrl: string,
     storageProvider: AsyncStorageProvider<WalletState>,
-    opts: { workerInterval?: number } = {}
+    opts: { workerInterval?: number } = {},
   ) {
     const state = await storageProvider.get();
     const setter = {
@@ -381,7 +313,7 @@ export class SingleMintWallet implements _SingleMintWallet {
     id: string,
     mintUrl: string,
     storageProvider: StorageProvider<WalletState>,
-    opts: { workerInterval?: number } = {}
+    opts: { workerInterval?: number } = {},
   ) {
     const state = storageProvider.get();
     const setter = {

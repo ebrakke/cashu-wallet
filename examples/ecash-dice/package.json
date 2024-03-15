@@ -12,6 +12,7 @@
   "dependencies": {
     "@cashu-wallet/core": "workspace:*",
     "@cashu-wallet/svelte": "workspace:*",
+    "@cashu-wallet/svelte-components": "workspace:*",
     "ioredis": "^5.3.2",
     "qr-scanner": "^1.4.2",
     "qrcode": "^1.5.3",
