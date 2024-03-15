@@ -1,14 +1,15 @@
 <script lang="ts">
-  import Wallet from "$lib/components/Wallet.svelte";
+  import { Wallet } from "@cashu-wallet/svelte-components";
   import { createWalletStore } from "@cashu-wallet/svelte";
+  import { onMount } from "svelte";
   const wallet = createWalletStore(
     "my-wallet",
-    "https://mint.minibits.cash/Bitcoin",
-    {
-      workerInterval: 3000,
-    }
+    "https://mint.minibits.cash/Bitcoin"
   );
 
+  onMount(() => {
+    wallet.init();
+  });
   let bet = 1;
   let result = "";
   let error: string | undefined;
@@ -57,7 +58,9 @@
     from other mints will fail!
   </p>
   <hr />
-  <Wallet {wallet} />
+  {#if wallet.state}
+    <Wallet {wallet} />
+  {/if}
   <h3>{result}</h3>
   {#if error}
     <p style="color: red">{error}</p>

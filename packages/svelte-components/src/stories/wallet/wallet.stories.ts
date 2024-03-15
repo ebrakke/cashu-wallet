@@ -18,7 +18,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const wallet = createWalletStore('local', 'http://localhost:3338');
+const wallet = createWalletStore('local', 'http://localhost:3338', { workerInterval: 5000 });
 const minitbitsWallet = createWalletStore('minibits', 'https://mint.minibits.cash/Bitcoin');
 wallet.init();
 minitbitsWallet.init();
