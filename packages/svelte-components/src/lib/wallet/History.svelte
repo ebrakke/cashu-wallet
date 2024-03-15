@@ -29,6 +29,9 @@
 <div>
 	<div class="flex flex-col gap-y-2">
 		<div>
+			<button on:click={wallet.checkPending}>Check Pending</button>
+		</div>
+		<div>
 			<h3>Invoices</h3>
 			<table class="table-auto">
 				<thead>
