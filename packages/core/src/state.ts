@@ -1,9 +1,14 @@
-import type { Proof } from "@cashu/cashu-ts";
-import type { Transaction } from "./transaction";
+import * as v from "valibot";
+import { TransactionSchema } from "./transaction";
+import { ProofSchema } from "./proof";
 
-export interface WalletState {
-  balance: number;
-  mintUrl: string;
-  proofs: Proof[];
-  transactions: Record<string, Transaction>;
-}
+const WalletStateSchema = v.object({
+  balance: v.number(),
+  mintUrl: v.string([v.url()]),
+  proofs: v.array(ProofSchema),
+  transactions: v.record(v.string(), TransactionSchema),
+});
+
+export const parseWalletState = (s: unknown) => v.parse(WalletStateSchema, s);
+
+export type WalletState = v.Output<typeof WalletStateSchema>;

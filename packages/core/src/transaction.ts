@@ -1,66 +1,57 @@
-export type EcashTransaction = {
-  type: "ecash";
-  token: string;
-  amount: number;
-  date: Date;
-  isPaid: boolean;
-};
-export type LightningTransaction = {
-  type: "lightning";
-  pr: string;
-  amount: number;
-  hash: string;
-  date: Date;
-  isPaid: boolean;
-};
+import * as v from "valibot";
+import { decode } from "@gandlaf21/bolt11-decode";
 
-export type Transaction = EcashTransaction | LightningTransaction;
+const EcashTransactionSchema = v.object({
+  type: v.literal("ecash"),
+  token: v.string([v.minLength(1)]),
+  amount: v.number([v.minValue(1)]),
+  date: v.optional(v.coerce(v.date(), Date), new Date()),
+  isPaid: v.optional(v.boolean(), false),
+});
+export type EcashTransaction = v.Output<typeof EcashTransactionSchema>;
+
+const LightningTransactionSchema = v.object({
+  type: v.literal("lightning"),
+  pr: v.string([v.minLength(1)]),
+  amount: v.number([v.minValue(1)]),
+  hash: v.string([v.minLength(1)]),
+  date: v.optional(v.coerce(v.date(), Date), new Date()),
+  isPaid: v.optional(v.boolean(), false),
+});
+
+export type LightningTransaction = v.Output<typeof LightningTransactionSchema>;
+export const TransactionSchema = v.union([
+  EcashTransactionSchema,
+  LightningTransactionSchema,
+]);
+export type Transaction = v.Output<typeof TransactionSchema>;
+
+export const parseTransaction = (t: unknown) => v.parse(TransactionSchema, t);
 
 export const isLightningTransaction = (
-  t: Transaction
-): t is LightningTransaction => t.type === "lightning";
+  t: Transaction,
+): t is LightningTransaction => v.is(LightningTransactionSchema, t);
 
 export const isEcashTransaction = (t: Transaction): t is EcashTransaction =>
-  t.type === "ecash";
+  v.is(EcashTransactionSchema, t);
 
-type LightningTransactionPayload = {
-  pr: string;
-  amount: number;
-  hash: string;
-  date?: Date;
-  isPaid?: boolean;
-};
-export const createLightningTransaction = ({
-  pr,
-  amount,
-  hash,
-  date = new Date(),
-  isPaid = false,
-}: LightningTransactionPayload): LightningTransaction => ({
-  type: "lightning",
-  pr,
-  amount,
-  hash,
-  date,
-  isPaid,
-});
+const LightningTransactionPayloadSchema = v.omit(LightningTransactionSchema, [
+  "type",
+]);
+type LightningTransactionPayload = v.Input<
+  typeof LightningTransactionPayloadSchema
+>;
+export const createLightningTransaction = (
+  payload: LightningTransactionPayload,
+) => v.parse(LightningTransactionSchema, payload);
 
-type EcashTransactionPayload = {
-  token: string;
-  amount: number;
-  date?: Date;
-  isPaid?: boolean;
-};
+const EcashTransactionPayloadSchema = v.omit(EcashTransactionSchema, ["type"]);
+type EcashTransactionPayload = v.Input<typeof EcashTransactionPayloadSchema>;
+export const createEcashTransaction = (payload: EcashTransactionPayload) =>
+  v.parse(EcashTransactionSchema, payload);
 
-export const createEcashTransaction = ({
-  token,
-  amount,
-  date = new Date(),
-  isPaid = false,
-}: EcashTransactionPayload): EcashTransaction => ({
-  type: "ecash",
-  token,
-  amount,
-  date,
-  isPaid,
-});
+export function getLnInvoiceAmount(pr: string): number {
+  const decoded = decode(pr);
+  const value = decoded.sections.find((s) => s.name === "amount")?.value;
+  return Math.floor(parseInt(value) / 1000);
+}

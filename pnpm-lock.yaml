@@ -161,6 +161,28 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.1
+      valibot:
+        specifier: ^0.30.0
+        version: 0.30.0
+    devDependencies:
+      prettier:
+        specifier: ^3.1.1
+        version: 3.2.5
+      tsup:
+        specifier: ^8.0.2
+        version: 8.0.2(typescript@5.4.2)
+      typescript:
+        specifier: ^5.4.2
+        version: 5.4.2
+
+  packages/server:
+    dependencies:
+      '@cashu-wallet/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cashu/cashu-ts':
+        specifier: ^0.9.0
+        version: 0.9.0
     devDependencies:
       prettier:
         specifier: ^3.1.1
@@ -305,6 +327,28 @@ importers:
       vite:
         specifier: ^5.0.11
         version: 5.1.5(@types/node@20.11.25)
+
+  packages/web:
+    dependencies:
+      '@cashu-wallet/core':
+        specifier: workspace:*
+        version: link:../core
+      '@cashu/cashu-ts':
+        specifier: ^0.9.0
+        version: 0.9.0
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.1
+    devDependencies:
+      prettier:
+        specifier: ^3.1.1
+        version: 3.2.5
+      tsup:
+        specifier: ^8.0.2
+        version: 8.0.2(typescript@5.4.2)
+      typescript:
+        specifier: ^5.4.2
+        version: 5.4.2
 
 packages:
 
@@ -6980,22 +7024,6 @@ packages:
       yaml: 1.10.2
     dev: true
 
-  /postcss-load-config@4.0.2:
-    resolution: {integrity: sha512-bSVhyJGL00wMVoPUzAVAnbEoWyqRxkjv64tUl427SKnPrENtq6hJwUojroMz2VB+Q1edmi4IfrAPpami5VVgMQ==}
-    engines: {node: '>= 14'}
-    peerDependencies:
-      postcss: '>=8.0.9'
-      ts-node: '>=9.0.0'
-    peerDependenciesMeta:
-      postcss:
-        optional: true
-      ts-node:
-        optional: true
-    dependencies:
-      lilconfig: 3.1.1
-      yaml: 2.4.1
-    dev: true
-
   /postcss-load-config@4.0.2(postcss@8.4.35):
     resolution: {integrity: sha512-bSVhyJGL00wMVoPUzAVAnbEoWyqRxkjv64tUl427SKnPrENtq6hJwUojroMz2VB+Q1edmi4IfrAPpami5VVgMQ==}
     engines: {node: '>= 14'}
@@ -8279,7 +8307,7 @@ packages:
       execa: 5.1.1
       globby: 11.1.0
       joycon: 3.1.1
-      postcss-load-config: 4.0.2
+      postcss-load-config: 4.0.2(postcss@8.4.35)
       resolve-from: 5.0.0
       rollup: 4.12.1
       source-map: 0.8.0-beta.0
@@ -8488,6 +8516,10 @@ packages:
   /v8-compile-cache@2.4.0:
     resolution: {integrity: sha512-ocyWc3bAHBB/guyqJQVI5o4BZkPhznPYUG2ea80Gond/BgNWpap8TOmLSeeQG7bnh2KMISxskdADG59j7zruhw==}
     dev: true
+
+  /valibot@0.30.0:
+    resolution: {integrity: sha512-5POBdbSkM+3nvJ6ZlyQHsggisfRtyT4tVTo1EIIShs6qCdXJnyWU5TJ68vr8iTg5zpOLjXLRiBqNx+9zwZz/rA==}
+    dev: false
 
   /validate-npm-package-license@3.0.4:
     resolution: {integrity: sha512-DpKm2Ui/xN7/HQKCtpZxoRWBhZ9Z0kqtygG8XCgNQ8ZlDnxuQmWhj566j8fN4Cu3/JmbhsDo7fcAJq4s9h27Ew==}

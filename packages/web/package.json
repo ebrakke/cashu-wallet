@@ -1,5 +1,5 @@
 {
-  "name": "@cashu-wallet/core",
+  "name": "@cashu-wallet/web",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -26,8 +26,7 @@
   },
   "dependencies": {
     "@cashu/cashu-ts": "^0.9.0",
-    "@gandlaf21/bolt11-decode": "^3.0.6",
-    "rxjs": "^7.8.1",
-    "valibot": "^0.30.0"
+    "@cashu-wallet/core": "workspace:*",
+    "rxjs": "^7.8.1"
   }
 }

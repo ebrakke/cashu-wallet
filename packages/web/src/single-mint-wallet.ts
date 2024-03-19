@@ -1,46 +1,26 @@
-import { BehaviorSubject, Observable, combineLatest, map } from "rxjs";
+import { BehaviorSubject } from "rxjs";
 import {
-  EcashTransaction,
-  LightningTransaction,
-  Transaction,
   createEcashTransaction,
   createLightningTransaction,
   isEcashTransaction,
   isLightningTransaction,
-} from "./transaction";
-import {
-  AsyncStorageProvider,
-  StorageProvider,
-  StorageSetter,
-} from "./storage";
-import {
-  CashuMint,
-  CashuWallet,
   getDecodedToken,
   getEncodedToken,
-  type Token,
-  type Proof,
-} from "@cashu/cashu-ts";
-import { getLnInvoiceAmount, getTokenAmount, getTokenMint } from "./utils";
+  type WalletState,
+  type Wallet,
+  StorageProvider,
+  getTokenMint,
+  Token,
+  getLnInvoiceAmount,
+  getTokenAmount,
+  Transaction,
+  Proof,
+  LightningTransaction,
+  EcashTransaction,
+  getProofsFromToken,
+} from "@cashu-wallet/core";
+import { CashuMint, CashuWallet } from "@cashu/cashu-ts";
 import { Poller } from "./poller";
-
-export interface WalletState {
-  balance: number;
-  proofs: Proof[];
-  transactions: Record<string, Transaction>;
-}
-
-interface _SingleMintWallet {
-  receiveLightning: (amount: number) => Promise<string>;
-  sendLightning: (invoice: string) => Promise<void>;
-  receiveEcash: (token: string) => Promise<void>;
-  sendEcash: (amount: number) => Promise<string>;
-  swap: (token: string) => Promise<void>;
-  getSwapFee: (token: string) => Promise<number>;
-  getFee: (pr: string) => Promise<number>;
-  state: WalletState;
-  state$: Observable<WalletState>;
-}
 
 export interface WalletOptions {
   workerInterval?: number;
@@ -48,20 +28,18 @@ export interface WalletOptions {
   initialState?: WalletState;
 }
 
-export class SingleMintWallet implements _SingleMintWallet {
+export class SingleMintWallet implements Wallet {
   public id: string;
   public mintUrl: string;
-  #storage: StorageSetter<WalletState>;
-  #proofs$$: BehaviorSubject<Proof[]> = new BehaviorSubject([] as Proof[]);
-  #transactions$$: BehaviorSubject<Record<string, Transaction>> =
-    new BehaviorSubject({});
+  #storage: StorageProvider<WalletState>;
+  #state$$: BehaviorSubject<WalletState>;
   #wallet: CashuWallet;
   #poller: Poller;
   constructor(
     id: string,
     mintUrl: string,
-    storage: StorageSetter<WalletState>,
-    opts?: WalletOptions,
+    storage: StorageProvider<WalletState>,
+    opts?: WalletOptions
   ) {
     const mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(mint);
@@ -71,17 +49,23 @@ export class SingleMintWallet implements _SingleMintWallet {
     this.#poller = new Poller(
       mintUrl,
       opts?.workerInterval,
-      opts?.retryAttempts,
+      opts?.retryAttempts
     );
     if (opts?.initialState) {
-      this.#proofs$$.next(opts.initialState.proofs);
-      this.#transactions$$.next(opts.initialState.transactions);
+      this.#state$$.next(opts.initialState);
+    } else {
+      this.#state$$.next({
+        balance: 0,
+        proofs: [],
+        transactions: {},
+        mintUrl,
+      });
     }
-    this.#poller.invoicePaidNotifier$.subscribe((invoice) =>
-      this.#handleLightningInvoicePaid(invoice),
+    this.#poller.invoicePaidNotifier$.subscribe(([invoice, proofs]) =>
+      this.#handleLightningInvoicePaid([invoice, proofs])
     );
-    this.#poller.proofSpentNotifier$.subscribe((txns) =>
-      this.#handleProofsSpent(txns),
+    this.#poller.tokenSpentNotifier$.subscribe((txns) =>
+      this.#handleProofsSpent(txns)
     );
     this.#setupPersistence();
   }
@@ -90,26 +74,14 @@ export class SingleMintWallet implements _SingleMintWallet {
    * Returns a snapshot of the current wallet state
    */
   get state() {
-    return {
-      balance: this.#balance,
-      proofs: this.#proofs,
-      transactions: this.#transactions,
-      mintUrl: this.mintUrl,
-    };
+    return this.#state$$.getValue();
   }
 
   /**
    * Returns an observable of the wallet state
    */
   get state$() {
-    return combineLatest([this.#proofs$$, this.#transactions$$]).pipe(
-      map(([proofs, transactions]) => ({
-        balance: proofs.reduce((acc, p) => acc + p.amount, 0),
-        proofs,
-        mintUrl: this.mintUrl,
-        transactions,
-      })),
-    );
+    return this.#state$$.asObservable();
   }
   /**
    *
@@ -125,7 +97,10 @@ export class SingleMintWallet implements _SingleMintWallet {
     }
     const response = await this.#wallet.receive(token);
     const proofs = response.token.token.map((t) => t.proofs).flat();
-    this.#proofs$$.next([...this.#proofs, ...proofs]);
+    this.#state$$.next({
+      ...this.state,
+      proofs: [...this.state.proofs, ...proofs],
+    });
   }
 
   /**
@@ -147,9 +122,12 @@ export class SingleMintWallet implements _SingleMintWallet {
         amount,
         hash: response.hash,
       });
-      this.#transactions$$.next({
-        ...this.#transactions,
-        [transaction.pr]: transaction,
+      this.#state$$.next({
+        ...this.state,
+        transactions: {
+          ...this.state.transactions,
+          [transaction.pr]: transaction,
+        },
       });
       this.#poller.addInvoice(transaction);
     }
@@ -163,8 +141,11 @@ export class SingleMintWallet implements _SingleMintWallet {
    * @returns
    */
   async sendEcash(amount: number): Promise<string> {
-    const response = await this.#wallet.send(amount, this.#proofs);
-    this.#proofs$$.next(response.returnChange);
+    const response = await this.#wallet.send(amount, this.state.proofs);
+    this.#state$$.next({
+      ...this.state,
+      proofs: response.returnChange,
+    });
     const token: Token = {
       token: [{ mint: this.mintUrl, proofs: response.send }],
     };
@@ -173,9 +154,12 @@ export class SingleMintWallet implements _SingleMintWallet {
       amount,
       token: encodedToken,
     });
-    this.#transactions$$.next({
-      ...this.#transactions,
-      [encodedToken]: transaction,
+    this.#state$$.next({
+      ...this.state,
+      transactions: {
+        ...this.state.transactions,
+        [encodedToken]: transaction,
+      },
     });
     this.#poller.addEcash(transaction);
     return encodedToken;
@@ -193,14 +177,13 @@ export class SingleMintWallet implements _SingleMintWallet {
     }
     const { returnChange, send } = await this.#wallet.send(
       amount + fee,
-      this.#proofs,
+      this.state.proofs
     );
     await this.#wallet.payLnInvoice(pr, send);
-    this.#proofs$$.next(returnChange);
-  }
-
-  async getFee(pr: string) {
-    return this.#wallet.getFee(pr);
+    this.#state$$.next({
+      ...this.state,
+      proofs: returnChange,
+    });
   }
 
   async swap(token: string) {
@@ -211,43 +194,31 @@ export class SingleMintWallet implements _SingleMintWallet {
     if (amount - fee <= 0) {
       throw new Error("Amount to swap is less than or equal to the fee");
     }
-    const untrustedWallet = new SingleMintWallet("untrusted", mint, {
-      set: () => {},
-    });
+    const untrustedWallet = new CashuWallet(new CashuMint(mint));
+
     const invoice = await this.receiveLightning(amount - fee);
     if (!invoice) throw new Error("Failed to swap");
-    await untrustedWallet.receiveEcash(token);
-    await untrustedWallet.sendLightning(invoice);
+    const r = await untrustedWallet.receive(token);
+    const untrustedProofs = getProofsFromToken(r.token);
+    await untrustedWallet.payLnInvoice(invoice, untrustedProofs);
   }
 
   async getSwapFee(token: string) {
     const decodedToken = getDecodedToken(token);
     const mint = getTokenMint(decodedToken);
     const amount = getTokenAmount(decodedToken);
-    const untrustedWallet = new SingleMintWallet("untrusted", mint, {
-      set: () => {},
-    });
+    const untrustedWallet = new CashuWallet(new CashuMint(mint));
     const pr = await this.receiveLightning(amount);
     if (!pr) throw new Error("Failed to get swap fee");
     const fee = await untrustedWallet.getFee(pr);
     return fee;
   }
 
-  async revokeInvoice(pr: string) {
-    const transaction = this.#transactions[pr];
-    if (!transaction) return;
-    const newTransactions = { ...this.#transactions };
-    delete newTransactions[pr];
-    this.#transactions$$.next({
-      ...newTransactions,
-    });
-  }
-
   async checkPendingTransactions() {
-    const pendingLightning = Object.values(this.#transactions)
+    const pendingLightning = Object.values(this.state.transactions)
       .filter(isLightningTransaction)
       .filter((t) => !t.isPaid);
-    const pendingEcash = Object.values(this.#transactions)
+    const pendingEcash = Object.values(this.state.transactions)
       .filter(isEcashTransaction)
       .filter((t) => !t.isPaid);
 
@@ -255,24 +226,33 @@ export class SingleMintWallet implements _SingleMintWallet {
     pendingLightning.forEach((t) => this.#poller.addInvoice(t));
   }
 
-  #handleLightningInvoicePaid(invoice: {
-    invoice: LightningTransaction;
-    proofs: Proof[];
-  }) {
-    this.#proofs$$.next([...this.#proofs, ...invoice.proofs]);
-    this.#transactions$$.next({
-      ...this.#transactions,
-      [invoice.invoice.pr]: { ...invoice.invoice, isPaid: true },
+  #handleLightningInvoicePaid([transaction, proofs]: [
+    LightningTransaction,
+    Proof[],
+  ]) {
+    if (!isLightningTransaction(transaction)) {
+      throw new Error("Invalid transaction type");
+    }
+    this.#state$$.next({
+      ...this.state,
+      proofs: [...this.state.proofs, ...proofs],
+      transactions: {
+        ...this.state.transactions,
+        [transaction.pr]: { ...transaction, isPaid: true },
+      },
     });
   }
 
   #handleProofsSpent(txns: EcashTransaction[]) {
     txns.forEach((t) => {
-      const transaction = this.#transactions[t.token];
+      const transaction = this.state.transactions[t.token];
       if (!transaction) return;
-      this.#transactions$$.next({
-        ...this.#transactions,
-        [t.token]: { ...transaction, isPaid: true },
+      this.#state$$.next({
+        ...this.state,
+        transactions: {
+          ...this.state.transactions,
+          [t.token]: { ...transaction, isPaid: true },
+        },
       });
     });
   }
@@ -288,59 +268,21 @@ export class SingleMintWallet implements _SingleMintWallet {
 
   // Static functions
 
-  static async loadFromAsyncStorage(
-    id: string,
-    mintUrl: string,
-    storageProvider: AsyncStorageProvider<WalletState>,
-    opts: { workerInterval?: number } = {},
-  ) {
-    const state = await storageProvider.get();
-    const setter = {
-      set: (state: WalletState) => storageProvider.set(state),
-    };
-    if (!state) {
-      console.warn("No saved state found");
-      return new SingleMintWallet(id, mintUrl, setter, opts);
-    }
-    const wallet = new SingleMintWallet(id, mintUrl, setter, {
-      ...opts,
-      initialState: state,
-    });
-    return wallet;
-  }
-
-  static loadFromSyncStorage(
+  static async loadFromStorage(
     id: string,
     mintUrl: string,
     storageProvider: StorageProvider<WalletState>,
-    opts: { workerInterval?: number } = {},
+    opts: { workerInterval?: number } = {}
   ) {
-    const state = storageProvider.get();
-    const setter = {
-      set: (state: WalletState) => storageProvider.set(state),
-    };
+    const state = await storageProvider.get();
     if (!state) {
       console.warn("No saved state found");
-      return new SingleMintWallet(id, mintUrl, setter, opts);
+      return new SingleMintWallet(id, mintUrl, storageProvider, opts);
     }
-    const wallet = new SingleMintWallet(id, mintUrl, setter, {
+    const wallet = new SingleMintWallet(id, mintUrl, storageProvider, {
       ...opts,
       initialState: state,
     });
     return wallet;
-  }
-
-  // Internal getters
-
-  get #proofs() {
-    return this.#proofs$$.getValue();
-  }
-
-  get #balance() {
-    return this.#proofs.reduce((acc, p) => acc + p.amount, 0);
-  }
-
-  get #transactions() {
-    return this.#transactions$$.getValue();
   }
 }
