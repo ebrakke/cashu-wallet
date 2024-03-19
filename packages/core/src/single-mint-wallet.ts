@@ -136,6 +136,7 @@ export class SingleMintWallet implements _SingleMintWallet {
    * @returns
    */
   async receiveLightning(amount: number, track = true): Promise<string> {
+    if (amount <= 0) throw new Error("Amount must be greater than 0");
     const response = await this.#wallet.requestMint(amount);
     if (response.error) {
       console.error(`failed to fund wallet: ${response.error}`);
@@ -163,6 +164,7 @@ export class SingleMintWallet implements _SingleMintWallet {
    * @returns
    */
   async sendEcash(amount: number): Promise<string> {
+    if (amount <= 0) throw new Error("Amount must be greater than 0");
     const response = await this.#wallet.send(amount, this.#proofs);
     this.#proofs$$.next(response.returnChange);
     const token: Token = {

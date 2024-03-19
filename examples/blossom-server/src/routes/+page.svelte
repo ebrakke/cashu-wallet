@@ -1,43 +1,29 @@
 <script lang="ts">
 	import { createWalletStore } from '@cashu-wallet/svelte';
 	import { BlossomClient, type BlobDescriptor } from 'blossom-client';
-	import {
-		generateSecretKey,
-		type EventTemplate,
-		finalizeEvent,
-		getPublicKey,
-		nip19
-	} from 'nostr-tools';
 	import { onMount } from 'svelte';
-	import Wallet from './Wallet.svelte';
+	import { Wallet } from '@cashu-wallet/svelte-components';
+	import ndk from '$lib/ndk';
+	import { signer } from '$lib/blossom';
 
-	let sk: Uint8Array;
-	const wallet = createWalletStore('localhost', 'http://localhost:3338');
-
+	const wallet = createWalletStore('localhost', 'http://localhost:3338', { workerInterval: 2000 });
 	onMount(() => {
-		const stored = localStorage.getItem('sk');
-		if (stored) {
-			sk = nip19.decode(stored).data as Uint8Array;
-		} else {
-			sk = generateSecretKey();
-			localStorage.setItem('sk', nip19.nsecEncode(sk));
-		}
 		wallet.init();
-		listFiles();
 		getFee();
+		listFiles();
 	});
-
-	async function signer(event: EventTemplate) {
-		return finalizeEvent(event, sk);
-	}
 
 	let file: HTMLInputElement;
 	let files: BlobDescriptor[] = [];
 	let fee: number;
+	let showWallet = false;
 
 	const handleUpload = async () => {
 		const f = file.files?.[0];
-		if (!f) return;
+		if (!f || f.size === 0) {
+			alert('No file selected');
+			return;
+		}
 		const kb = f.size / 1024;
 		const uploadFee = Math.floor(fee * kb);
 		if (!confirm(`Fee to upload ${kb} KB: ${uploadFee} sats`)) {
@@ -45,6 +31,7 @@
 		}
 		const ecash = await wallet.sendEcash(uploadFee);
 		const auth = await BlossomClient.getUploadAuth(f, signer);
+		console.log('AUTH', auth);
 		const res = await fetch('/upload', {
 			headers: {
 				Authorization: BlossomClient.encodeAuthorizationHeader(auth),
@@ -55,17 +42,17 @@
 		});
 		const r = await res.json();
 		if (!res.ok) {
-			console.log(r.error);
+			alert(r.message);
+			await wallet.receiveEcash(ecash);
 			return;
 		}
-		console.log(r);
 	};
 
 	const listFiles = async () => {
-		const res = await fetch(`/list/${getPublicKey(sk)}`, {});
+		const res = await fetch(`/list/${$ndk.activeUser?.pubkey}`, {});
 		const r = await res.json();
 		if (!res.ok) {
-			console.log(r.error);
+			alert(r.error);
 			return;
 		}
 		files = r;
@@ -82,16 +69,24 @@
 	};
 </script>
 
-<h1>Upload a file</h1>
-<h3>Fee: {fee} sats / KB</h3>
-<Wallet {wallet} />
-{#if sk}
-	<h3>Pubkey: {getPublicKey(sk)}</h3>
-{/if}
-<form on:submit|preventDefault={handleUpload}>
-	<input type="file" name="file" bind:this={file} />
-	<button>Upload</button>
-</form>
+<div class="header">
+	<h1>Upload a file</h1>
+	<h3>Fee: {fee} sats / KB</h3>
+</div>
+<div>
+	<button class="btn" on:click={() => (showWallet = !showWallet)}
+		>{showWallet ? 'Hide' : 'Show'} Wallet</button
+	>
+	{#if showWallet}
+		<Wallet {wallet} />
+	{/if}
+</div>
+<div class="my-4">
+	<form on:submit|preventDefault={handleUpload}>
+		<input type="file" class="file-input" name="file" bind:this={file} />
+		<button class="btn">Upload</button>
+	</form>
+</div>
 <button on:click={listFiles}>List files</button>
 {#if files.length > 0}
 	<h2>Files</h2>

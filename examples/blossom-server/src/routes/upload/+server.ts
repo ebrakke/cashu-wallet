@@ -21,13 +21,9 @@ export const PUT: RequestHandler = async ({ request }) => {
 		}
 		const wallet = await getOrCreateServerWallet();
 		await wallet.receiveEcash(ecash);
-		const exists = await fileService.getByFile(f);
-		if (exists) {
-			return json(fileService.toBlobDescriptor(exists));
-		}
 		const name = event.tags.find((t) => t[0] === 'name')?.[1];
 		const saved = await fileService.saveFile(event.pubkey, f, name);
-		return json(fileService.toBlobDescriptor(saved));
+		return json(saved);
 	} catch (e) {
 		console.error(e);
 		throw error(400, (e as any).message);
