@@ -25,8 +25,8 @@ export function getLnInvoiceAmount(pr: string): number {
   return Math.floor(parseInt(value) / 1000);
 }
 
-export function getProofsFromTransaction(token: EcashTransaction) {
-  return getDecodedToken(token.token)
+export function getProofsFromTransaction(transaction: EcashTransaction) {
+  return getDecodedToken(transaction.token)
     .token.map((t) => t.proofs)
     .flat();
 }
