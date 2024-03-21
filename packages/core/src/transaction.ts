@@ -5,7 +5,10 @@ const EcashTransactionSchema = v.object({
   type: v.literal("ecash"),
   token: v.string([v.minLength(1)]),
   amount: v.number([v.minValue(1)]),
-  date: v.optional(v.coerce(v.date(), Date), new Date()),
+  date: v.optional(
+    v.coerce(v.date(), (i) => new Date(i as string)),
+    new Date(),
+  ),
   isPaid: v.optional(v.boolean(), false),
 });
 export type EcashTransaction = v.Output<typeof EcashTransactionSchema>;
@@ -15,7 +18,10 @@ const LightningTransactionSchema = v.object({
   pr: v.string([v.minLength(1)]),
   amount: v.number([v.minValue(1)]),
   hash: v.string([v.minLength(1)]),
-  date: v.optional(v.coerce(v.date(), Date), new Date()),
+  date: v.optional(
+    v.coerce(v.date(), (i) => new Date(i as string)),
+    new Date(),
+  ),
   isPaid: v.optional(v.boolean(), false),
 });
 
@@ -30,10 +36,10 @@ export const parseTransaction = (t: unknown) => v.parse(TransactionSchema, t);
 
 export const isLightningTransaction = (
   t: Transaction,
-): t is LightningTransaction => v.is(LightningTransactionSchema, t);
+): t is LightningTransaction => t.type === "lightning";
 
 export const isEcashTransaction = (t: Transaction): t is EcashTransaction =>
-  v.is(EcashTransactionSchema, t);
+  t.type === "ecash";
 
 const LightningTransactionPayloadSchema = v.omit(LightningTransactionSchema, [
   "type",
@@ -43,12 +49,12 @@ type LightningTransactionPayload = v.Input<
 >;
 export const createLightningTransaction = (
   payload: LightningTransactionPayload,
-) => v.parse(LightningTransactionSchema, payload);
+) => v.parse(LightningTransactionSchema, { type: "lightning", ...payload });
 
 const EcashTransactionPayloadSchema = v.omit(EcashTransactionSchema, ["type"]);
 type EcashTransactionPayload = v.Input<typeof EcashTransactionPayloadSchema>;
 export const createEcashTransaction = (payload: EcashTransactionPayload) =>
-  v.parse(EcashTransactionSchema, payload);
+  v.parse(EcashTransactionSchema, { type: "ecash", ...payload });
 
 export function getLnInvoiceAmount(pr: string): number {
   const decoded = decode(pr);

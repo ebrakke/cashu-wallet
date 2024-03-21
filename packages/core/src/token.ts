@@ -33,7 +33,7 @@ export const getTokenMint = (token: Token) => {
   if (token.token.length === 0) {
     throw new Error("Token not found");
   }
-  const mints = new Set(...token.token.map((t) => t.mint));
+  const mints = new Set([...token.token.map((t) => t.mint)]);
   if (mints.size > 1) {
     throw new Error("Multiple mints found in this token");
   }

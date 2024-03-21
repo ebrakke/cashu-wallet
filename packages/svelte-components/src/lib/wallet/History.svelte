@@ -3,7 +3,7 @@
 	import { isEcashTransaction, isLightningTransaction } from '@cashu-wallet/core';
 	import type { WalletStore } from '@cashu-wallet/svelte';
 	export let wallet: WalletStore;
-	let state = wallet.state;
+	let state = $wallet.state$;
 	const dateFmt = 'yyyy-MM-dd HH:mm:ss';
 
 	$: pendingInvoices = Object.values($state.transactions)
@@ -29,7 +29,7 @@
 <div>
 	<div class="flex flex-col gap-y-2">
 		<div>
-			<button on:click={wallet.checkPending}>Check Pending</button>
+			<button on:click={$wallet.checkPendingTransactions}>Check Pending</button>
 		</div>
 		<div>
 			<h3>Invoices</h3>
@@ -52,7 +52,6 @@
 							<td>{invoice.isPaid}</td>
 							<td>
 								<button on:click={() => handleCopy(invoice.pr)}>Copy</button>
-								<button on:click={() => wallet.revokeInvoice(invoice.pr)}>Cancel</button>
 							</td>
 						</tr>
 					{/each}
@@ -90,7 +89,7 @@
 							<td>{token.token.slice(0, 20)}...</td>
 							<td>{token.isPaid}</td>
 							<td class="flex gap-x-1">
-								<button on:click={() => wallet.receiveEcash(token.token)}>Claim</button>
+								<button on:click={() => $wallet.receiveEcash(token.token)}>Claim</button>
 								<button on:click={() => handleCopy(token.token)}>Copy</button>
 							</td>
 						</tr>

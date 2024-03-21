@@ -1,82 +1,59 @@
-import { fromEvent } from "rxjs";
-import * as QRCode from "qrcode";
-import {
-  SingleMintWallet,
-  LocalStorageProvider,
-  isEcashTransaction,
-} from "@cashu-wallet/core";
+import Alpine from "alpinejs";
+import { SingleMintWallet, LocalStorageProvider } from "@cashu-wallet/web";
 
-document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
-  <div>
-    <form id="receive">
-      <input id="receive-amount" type="number" placeholder="amount"/>
-      <input id="token" type="text" placeholder="token"/>
+const init = async () => {
+  const wallet = await SingleMintWallet.loadFromStorage(
+    "local",
+    "http://localhost:33338",
+    new LocalStorageProvider("local-1"),
+    { workerInterval: 5000, retryAttempts: 20 }
+  );
+  Alpine.data("wallet", () => ({
+    init() {
+      wallet.state$.subscribe((state) => {
+        this.state = state;
+        if (this.token && state.transactions[this.token]?.isPaid) {
+          this.token = "";
+        }
+        if (this.invoice && state.transactions[this.invoice]?.isPaid) {
+          this.invoice = "";
+        }
+      });
+    },
+    state: wallet.state,
+    token: "",
+    invoice: "",
+    async receive(amount?: number, ecash?: string) {
+      if (amount) {
+        this.invoice = await wallet.receiveLightning(amount);
+        return;
+      }
+      if (ecash) {
+        await wallet.receiveEcash(ecash);
+      }
+    },
+    async send(amount: number) {
+      this.token = await wallet.sendEcash(amount);
+    },
+  }));
+  document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
+  <div x-data="wallet">
+    <h1 x-text="state.mintUrl"></h1>
+    <h3 x-text="state.balance"></h3>
+    <form @submit.prevent="receive($event.target.amount.valueAsNumber, $event.target.ecash.value)">
+      <input type="number" name="amount" placeholder="amount"/>
+      <input type="text" name="ecash" placeholder="ecash" />
       <button>Receive</button>
     </form>
-    <form id="send">
-      <input id="send-amount" type="number" placeholder="amount"/>
-      <input id="send-invoice" type="text" placeholder="bolt11 invoice"/>
-      <button id="send">Send</button>
+    <form @submit.prevent="send($event.target.amount.valueAsNumber)">
+      <input type="number" name="amount" placeholder="amount" />
+      <button>Send</button>
     </form>
-    <div id="balance">Balance: 0</div>
-    <div id="pending-tokens"></div>
-
-    <canvas id="invoice"></canvas>
+    <p x-text="token"></p>
+    <p x-text="invoice" ></p>
+    <canvas id="code"></canvas>
   </div>
 `;
-
-const wallet = SingleMintWallet.loadFromSyncStorage(
-  "local-1",
-  "http://localhost:3338",
-  new LocalStorageProvider("local-1")
-);
-
-// actions
-const receiveFormEl = document.querySelector<HTMLFormElement>("form#receive")!;
-const sendFormEl = document.querySelector<HTMLFormElement>("form#send")!;
-
-// state
-const receiveAmountEl =
-  document.querySelector<HTMLInputElement>("#receive-amount")!;
-const receiveTokenEl = document.querySelector<HTMLInputElement>("#token")!;
-const sendAmountEl = document.querySelector<HTMLInputElement>("#send-amount")!;
-const sendInvoiceEl =
-  document.querySelector<HTMLInputElement>("#send-invoice")!;
-const balanceEl = document.querySelector<HTMLDivElement>("#balance")!;
-
-wallet.state$.subscribe((state) => {
-  balanceEl.innerHTML = `Balance: ${state.balance}`;
-  const pendingTokens = Object.values(state.transactions)
-    .filter(isEcashTransaction)
-    .filter((t) => !t.isPaid);
-  const pendingTokensEl =
-    document.querySelector<HTMLDivElement>("#pending-tokens")!;
-  pendingTokensEl.innerHTML = pendingTokens.map((t) => t.token).join(", ");
-});
-
-fromEvent(receiveFormEl, "submit").subscribe(async (e) => {
-  e.preventDefault();
-  const amount = receiveAmountEl.valueAsNumber;
-  const token = receiveTokenEl.value;
-  if (token) {
-    await wallet.receiveEcash(token);
-  } else {
-    const invoice = await wallet.receiveLightning(amount);
-    await QRCode.toCanvas(document.getElementById("invoice"), invoice!);
-  }
-  receiveAmountEl.value = "";
-});
-
-fromEvent(sendFormEl, "submit").subscribe(async (e) => {
-  e.preventDefault();
-  const amount = sendAmountEl.valueAsNumber;
-  const invoice = sendInvoiceEl.value;
-  if (invoice) {
-    await wallet.sendLightning(invoice);
-  } else {
-    const token = await wallet.sendEcash(amount);
-    await QRCode.toCanvas(document.getElementById("invoice"), token!);
-  }
-  receiveAmountEl.value = "";
-  receiveTokenEl.value = "";
-});
+};
+Alpine.start();
+init();

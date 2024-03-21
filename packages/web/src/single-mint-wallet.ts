@@ -1,4 +1,4 @@
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, map } from "rxjs";
 import {
   createEcashTransaction,
   createLightningTransaction,
@@ -13,14 +13,14 @@ import {
   Token,
   getLnInvoiceAmount,
   getTokenAmount,
-  Transaction,
   Proof,
   LightningTransaction,
   EcashTransaction,
   getProofsFromToken,
+  type Poller,
+  RxPoller,
 } from "@cashu-wallet/core";
 import { CashuMint, CashuWallet } from "@cashu/cashu-ts";
-import { Poller } from "./poller";
 
 export interface WalletOptions {
   workerInterval?: number;
@@ -46,25 +46,35 @@ export class SingleMintWallet implements Wallet {
     this.id = id;
     this.mintUrl = mintUrl;
     this.#storage = storage;
-    this.#poller = new Poller(
+    this.#poller = new RxPoller(
       mintUrl,
       opts?.workerInterval,
-      opts?.retryAttempts
+      opts?.retryAttempts,
+      {
+        ecash: Object.values(opts?.initialState?.transactions ?? []).filter(
+          isEcashTransaction
+        ),
+        lightning: Object.values(opts?.initialState?.transactions ?? []).filter(
+          isLightningTransaction
+        ),
+      }
     );
     if (opts?.initialState) {
-      this.#state$$.next(opts.initialState);
+      this.#state$$ = new BehaviorSubject(opts.initialState);
     } else {
-      this.#state$$.next({
+      this.#state$$ = new BehaviorSubject({
         balance: 0,
         proofs: [],
         transactions: {},
-        mintUrl,
-      });
+        mintUrl: mintUrl,
+      } as WalletState);
     }
-    this.#poller.invoicePaidNotifier$.subscribe(([invoice, proofs]) =>
-      this.#handleLightningInvoicePaid([invoice, proofs])
+    this.#poller.paidNotifier$.subscribe((transactions) =>
+      transactions.forEach(([invoice, proofs]) =>
+        this.#handleLightningInvoicePaid([invoice, proofs])
+      )
     );
-    this.#poller.tokenSpentNotifier$.subscribe((txns) =>
+    this.#poller.spentNotifier$.subscribe((txns) =>
       this.#handleProofsSpent(txns)
     );
     this.#setupPersistence();
@@ -74,14 +84,25 @@ export class SingleMintWallet implements Wallet {
    * Returns a snapshot of the current wallet state
    */
   get state() {
-    return this.#state$$.getValue();
+    const currentState = this.#state$$.getValue();
+    return {
+      ...currentState,
+      balance: currentState.proofs
+        .map((p) => p.amount)
+        .reduce((a, b) => a + b, 0),
+    };
   }
 
   /**
    * Returns an observable of the wallet state
    */
   get state$() {
-    return this.#state$$.asObservable();
+    return this.#state$$.asObservable().pipe(
+      map((s) => ({
+        ...s,
+        balance: s.proofs.map((p) => p.amount).reduce((a, b) => a + b, 0),
+      }))
+    );
   }
   /**
    *
@@ -129,7 +150,7 @@ export class SingleMintWallet implements Wallet {
           [transaction.pr]: transaction,
         },
       });
-      this.#poller.addInvoice(transaction);
+      this.#poller.addLightning(transaction);
     }
     return response.pr;
   }
@@ -223,7 +244,7 @@ export class SingleMintWallet implements Wallet {
       .filter((t) => !t.isPaid);
 
     pendingEcash.forEach((t) => this.#poller.addEcash(t));
-    pendingLightning.forEach((t) => this.#poller.addInvoice(t));
+    pendingLightning.forEach((t) => this.#poller.addLightning(t));
   }
 
   #handleLightningInvoicePaid([transaction, proofs]: [
@@ -272,7 +293,7 @@ export class SingleMintWallet implements Wallet {
     id: string,
     mintUrl: string,
     storageProvider: StorageProvider<WalletState>,
-    opts: { workerInterval?: number } = {}
+    opts: WalletOptions = {}
   ) {
     const state = await storageProvider.get();
     if (!state) {
