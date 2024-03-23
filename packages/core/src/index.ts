@@ -1,4 +1,4 @@
-export type { StorageProvider } from "./storage";
+export type { StorageProvider, SimpleStorageProvider } from "./storage";
 export { type WalletState, parseWalletState } from "./state";
 export { type Wallet } from "./wallet";
 

@@ -1,8 +1,11 @@
-import { StorageProvider, WalletState } from "@cashu-wallet/core";
+import {
+  type SimpleStorageProvider,
+  type WalletState,
+} from "@cashu-wallet/core";
 import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
 
-export class FileStorageProvider implements StorageProvider<WalletState> {
+export class FileStorageProvider implements SimpleStorageProvider {
   #client: Low<WalletState>;
   constructor(path: string, initialState?: WalletState) {
     this.#client = new Low<WalletState>(

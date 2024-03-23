@@ -8,7 +8,6 @@ import {
   getEncodedToken,
   type WalletState,
   type Wallet,
-  StorageProvider,
   getTokenMint,
   Token,
   getLnInvoiceAmount,
@@ -19,6 +18,7 @@ import {
   getProofsFromToken,
   type Poller,
   RxPoller,
+  type SimpleStorageProvider,
 } from "@cashu-wallet/core";
 import { CashuMint, CashuWallet } from "@cashu/cashu-ts";
 
@@ -31,14 +31,14 @@ export interface WalletOptions {
 export class SingleMintWallet implements Wallet {
   public id: string;
   public mintUrl: string;
-  #storage: StorageProvider<WalletState>;
+  #storage: SimpleStorageProvider;
   #state$$: BehaviorSubject<WalletState>;
   #wallet: CashuWallet;
   #poller: Poller;
   constructor(
     id: string,
     mintUrl: string,
-    storage: StorageProvider<WalletState>,
+    storage: SimpleStorageProvider,
     opts?: WalletOptions
   ) {
     const mint = new CashuMint(mintUrl);
@@ -49,15 +49,7 @@ export class SingleMintWallet implements Wallet {
     this.#poller = new RxPoller(
       mintUrl,
       opts?.workerInterval,
-      opts?.retryAttempts,
-      {
-        ecash: Object.values(opts?.initialState?.transactions ?? []).filter(
-          isEcashTransaction
-        ),
-        lightning: Object.values(opts?.initialState?.transactions ?? []).filter(
-          isLightningTransaction
-        ),
-      }
+      opts?.retryAttempts
     );
     if (opts?.initialState) {
       this.#state$$ = new BehaviorSubject(opts.initialState);
@@ -69,15 +61,14 @@ export class SingleMintWallet implements Wallet {
         mintUrl: mintUrl,
       } as WalletState);
     }
-    this.#poller.paidNotifier$.subscribe((transactions) =>
-      transactions.forEach(([invoice, proofs]) =>
-        this.#handleLightningInvoicePaid([invoice, proofs])
-      )
+    this.#poller.paidNotifier$.subscribe(([invoice, proofs]) =>
+      this.#handleLightningInvoicePaid([invoice, proofs])
     );
     this.#poller.spentNotifier$.subscribe((txns) =>
       this.#handleProofsSpent(txns)
     );
-    this.#setupPersistence();
+
+    this.state$.subscribe((state) => this.#storage.set(state));
   }
 
   /**
@@ -117,6 +108,12 @@ export class SingleMintWallet implements Wallet {
       throw new Error(`invalid mint ${mintUrl} for wallet ${this.mintUrl}`);
     }
     const response = await this.#wallet.receive(token);
+    if (response.tokensWithErrors) {
+      console.error(
+        `failed to receive token: ${response.tokensWithErrors.token.join(", ")}`
+      );
+      throw new Error("Failed to receive token");
+    }
     const proofs = response.token.token.map((t) => t.proofs).flat();
     this.#state$$.next({
       ...this.state,
@@ -131,27 +128,25 @@ export class SingleMintWallet implements Wallet {
    * @param amount
    * @returns
    */
-  async receiveLightning(amount: number, track = true): Promise<string> {
+  async receiveLightning(amount: number): Promise<string> {
     const response = await this.#wallet.requestMint(amount);
     if (response.error) {
       console.error(`failed to fund wallet: ${response.error}`);
       throw new Error("Failed to fund wallet");
     }
-    if (track) {
-      const transaction = createLightningTransaction({
-        pr: response.pr,
-        amount,
-        hash: response.hash,
-      });
-      this.#state$$.next({
-        ...this.state,
-        transactions: {
-          ...this.state.transactions,
-          [transaction.pr]: transaction,
-        },
-      });
-      this.#poller.addLightning(transaction);
-    }
+    const transaction = createLightningTransaction({
+      pr: response.pr,
+      amount,
+      hash: response.hash,
+    });
+    this.#state$$.next({
+      ...this.state,
+      transactions: {
+        ...this.state.transactions,
+        [transaction.pr]: transaction,
+      },
+    });
+    this.#poller.addLightning(transaction);
     return response.pr;
   }
 
@@ -245,6 +240,7 @@ export class SingleMintWallet implements Wallet {
 
     pendingEcash.forEach((t) => this.#poller.addEcash(t));
     pendingLightning.forEach((t) => this.#poller.addLightning(t));
+    this.#poller.check();
   }
 
   #handleLightningInvoicePaid([transaction, proofs]: [
@@ -278,21 +274,12 @@ export class SingleMintWallet implements Wallet {
     });
   }
 
-  /**
-   * If a storage provider is provided, every time the wallet state changes, it will be written to storage
-   */
-  #setupPersistence() {
-    this.state$.subscribe((state) => {
-      this.#storage!.set(state);
-    });
-  }
-
   // Static functions
 
   static async loadFromStorage(
     id: string,
     mintUrl: string,
-    storageProvider: StorageProvider<WalletState>,
+    storageProvider: SimpleStorageProvider,
     opts: WalletOptions = {}
   ) {
     const state = await storageProvider.get();

@@ -3,7 +3,6 @@ import {
   switchMap,
   type Observable,
   interval,
-  combineLatest,
   retry,
   Subject,
   map,
@@ -11,6 +10,9 @@ import {
   Subscription,
   filter,
   take,
+  mergeMap,
+  tap,
+  defer,
 } from "rxjs";
 import { EcashTransaction, LightningTransaction } from "./transaction";
 import { Proof } from "./proof";
@@ -21,16 +23,17 @@ export interface Poller {
   addEcash(transaction: EcashTransaction): void;
   addLightning(transaction: LightningTransaction): void;
   spentNotifier$: Observable<EcashTransaction[]>;
-  paidNotifier$: Observable<[LightningTransaction, Proof[]][]>;
+  paidNotifier$: Observable<[LightningTransaction, Proof[]]>;
   check(): void;
   destroy(): void;
 }
 
 export class RxPoller implements Poller {
-  paidNotifier$: Observable<[LightningTransaction, Proof[]][]>;
+  paidNotifier$: Observable<[LightningTransaction, Proof[]]>;
   spentNotifier$: Observable<EcashTransaction[]>;
   #ecash$$ = new BehaviorSubject<EcashTransaction[]>([]);
-  $lightning$$ = new Subject<LightningTransaction>();
+  #lightning: LightningTransaction[] = [];
+  #lightning$$ = new Subject<LightningTransaction>();
   #mint: CashuMint;
   #wallet: CashuWallet;
   #spentNotifier$$ = new Subject<EcashTransaction[]>();
@@ -42,27 +45,16 @@ export class RxPoller implements Poller {
     public readonly mintUrl: string,
     private readonly checkInterval = 10000,
     private readonly attempts = 20,
-    initial?: { ecash: EcashTransaction[]; lightning: LightningTransaction[] },
   ) {
     this.#mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(this.#mint);
     this.paidNotifier$ = this.#paidNotifier$$.asObservable();
     this.spentNotifier$ = this.#spentNotifier$$.asObservable();
-    if (initial) {
-      this.#ecash$$.next(initial.ecash);
-      this.#lightning$$.next(initial.lightning);
-    }
 
-    this.#lightningSub = this.#createLightningChecker().subscribe(
-      (transactions) => {
-        transactions.forEach(([t]) => {
-          this.#lightning$$.next(
-            this.#lightning$$.getValue().filter((tx) => tx.hash !== t.hash),
-          );
-        });
-        this.#paidNotifier$$.next(transactions);
-      },
-    );
+    this.#lightningSub = this.#createLightningChecker().subscribe(([t, p]) => {
+      this.#lightning = this.#lightning.filter((tx) => tx.hash !== t.hash);
+      this.#paidNotifier$$.next([t, p]);
+    });
 
     this.#ecashSub = this.#createEcashChecker().subscribe((transactions) => {
       this.#ecash$$.next(
@@ -85,7 +77,8 @@ export class RxPoller implements Poller {
     if (exists) {
       return;
     }
-    this.#lightning$$.next([...this.#lightning, transaction]);
+    this.#lightning.push(transaction);
+    this.#lightning$$.next(transaction);
   }
 
   check(): void {
@@ -98,25 +91,15 @@ export class RxPoller implements Poller {
   }
 
   #createLightningChecker() {
-    return merge(this.#lightning$$, checkTrigger$).pipe(
-      switchMap((transactions) => {
-        return interval(this.checkInterval).pipe(
-          filter(() => transactions.length > 0),
-          switchMap(() =>
-            combineLatest(
-              transactions.map((t) =>
-                this.#wallet
-                  .requestTokens(t.amount, t.hash)
-                  .then(
-                    (proofs) =>
-                      [t, proofs.proofs] as [LightningTransaction, Proof[]],
-                  ),
-              ),
-            ),
-          ),
-          retry(this.attempts),
-        );
-      }),
+    return this.#lightning$$.pipe(
+      tap((t) => console.log("checking", t)),
+      mergeMap((t) =>
+        defer(() => this.#wallet.requestTokens(t.amount, t.hash)).pipe(
+          tap((r) => console.log("got proofs", r)),
+          retry({ count: this.attempts, delay: this.checkInterval }),
+          map(({ proofs }) => [t, proofs] as [LightningTransaction, Proof[]]),
+        ),
+      ),
     );
   }
 
@@ -148,9 +131,5 @@ export class RxPoller implements Poller {
 
   get #ecash() {
     return this.#ecash$$.getValue();
-  }
-
-  get #lightning() {
-    return this.#lightning$$.getValue();
   }
 }

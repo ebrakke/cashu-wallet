@@ -1,15 +1,20 @@
-import type { StorageProvider, WalletState } from "@cashu-wallet/core";
+import {
+  parseWalletState,
+  type SimpleStorageProvider,
+  type WalletState,
+} from "@cashu-wallet/core";
 
-export class LocalStorageProvider implements StorageProvider<WalletState> {
+export class LocalStorageProvider implements SimpleStorageProvider {
   constructor(private readonly key: string) {}
-  async get() {
-    const value = localStorage.getItem(this.key);
-    if (!value) {
-      return null;
+  async get(): Promise<WalletState | null> {
+    const state = localStorage.getItem(this.key);
+    if (state) {
+      return parseWalletState(JSON.parse(state));
     }
-    return JSON.parse(value) as WalletState;
+    return null;
   }
-  async set(value: WalletState) {
+
+  async set(value: WalletState): Promise<void> {
     localStorage.setItem(this.key, JSON.stringify(value));
   }
 }

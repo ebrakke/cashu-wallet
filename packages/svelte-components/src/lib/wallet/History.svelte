@@ -1,112 +1,75 @@
 <script lang="ts">
 	import { format } from 'date-fns';
 	import { isEcashTransaction, isLightningTransaction } from '@cashu-wallet/core';
-	import type { WalletStore } from '@cashu-wallet/svelte';
-	export let wallet: WalletStore;
-	let state = $wallet.state$;
+	import { getAppState } from './state.js';
+
+	const { wallet, mode } = getAppState();
+	$: state = $wallet?.state$;
 	const dateFmt = 'yyyy-MM-dd HH:mm:ss';
+	$: transactions = Object.values($state.transactions).sort(
+		(a, b) => b.date.getTime() - a.date.getTime()
+	);
+	$: lightning = transactions.filter(isLightningTransaction);
 
-	$: pendingInvoices = Object.values($state.transactions)
-		.filter(isLightningTransaction)
-		.filter((ts) => ts.isPaid === false);
-
-	$: paidInvoices = Object.values($state.transactions)
-		.filter(isLightningTransaction)
-		.filter((ts) => ts.isPaid === true);
-
-	$: pendingTokens = Object.values($state.transactions)
-		.filter(isEcashTransaction)
-		.filter((ts) => ts.isPaid === false);
-	$: spentTokens = Object.values($state.transactions)
-		.filter(isEcashTransaction)
-		.filter((ts) => ts.isPaid === true);
+	$: ecash = transactions.filter(isEcashTransaction);
 
 	const handleCopy = (text: string) => {
 		navigator.clipboard.writeText(text);
 	};
 </script>
 
-<div>
-	<div class="flex flex-col gap-y-2">
-		<div>
-			<button on:click={$wallet.checkPendingTransactions}>Check Pending</button>
-		</div>
-		<div>
-			<h3>Invoices</h3>
-			<table class="table-auto">
-				<thead>
+<div class="overflow-x-auto h-96 w-full">
+	<button on:click={() => $wallet.checkPendingTransactions()}>Refresh</button>
+	<table class="table table-xs table-pin-rows table-pin-cols">
+		<thead>
+			<tr>
+				<th>Date</th>
+				<th>Amount</th>
+				<th>Token</th>
+				<th>Status</th>
+			</tr>
+		</thead>
+		<tbody>
+			{#if $mode === 'lightning'}
+				{#each lightning as tx}
 					<tr>
-						<th>Date</th>
-						<th>Amount</th>
-						<th>Payment Request</th>
-						<th>Paid</th>
-						<th />
+						<td>{format(tx.date, dateFmt)}</td>
+						<td>{tx.amount}</td>
+						<td
+							><button class="btn btn-xs btn-ghost" on:click={() => handleCopy(tx.pr)}
+								>{tx.pr.slice(0, 5)}...{tx.pr.slice(-10, -1)}</button
+							></td
+						>
+						<td>
+							{#if tx.isPaid}
+								<span class="badge badge-success">Paid</span>
+							{:else}
+								<span class="badge badge-warning">Pending</span>
+							{/if}
+						</td>
 					</tr>
-				</thead>
-				<tbody>
-					{#each pendingInvoices as invoice}
-						<tr>
-							<td>{format(invoice.date, dateFmt)}</td>
-							<td>{invoice.amount}</td>
-							<td>{invoice.pr.slice(0, 20)}...</td>
-							<td>{invoice.isPaid}</td>
-							<td>
-								<button on:click={() => handleCopy(invoice.pr)}>Copy</button>
-							</td>
-						</tr>
-					{/each}
-					{#each paidInvoices as invoice}
-						<tr>
-							<td>{format(invoice.date, dateFmt)}</td>
-							<td>{invoice.amount}</td>
-							<td>{invoice.pr.slice(0, 20)}...</td>
-							<td>{invoice.isPaid}</td>
-							<td>
-								<button on:click={() => handleCopy(invoice.pr)}>Copy</button>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-		<div>
-			<h3>Tokens</h3>
-			<table class="table-auto">
-				<thead>
+				{/each}
+			{/if}
+			{#if $mode === 'ecash'}
+				{#each ecash as tx}
 					<tr>
-						<th>Date</th>
-						<th>Amount</th>
-						<th>Token</th>
-						<th>Paid</th>
-						<th />
+						<td>{format(tx.date, dateFmt)}</td>
+						<td>{tx.amount}</td>
+						<td
+							><button class="btn btn-xs btn-ghost" on:click={() => handleCopy(tx.token)}
+								>{tx.token.slice(0, 5)}...{tx.token.slice(-10, -1)}</button
+							></td
+						>
+						<td>
+							{#if tx.isPaid}
+								<span class="badge badge-success">Paid</span>
+							{:else}
+								<span class="badge badge-warning">Pending</span>
+							{/if}
+						</td>
 					</tr>
-				</thead>
-				<tbody>
-					{#each pendingTokens as token}
-						<tr>
-							<td>{format(token.date, dateFmt)}</td>
-							<td>{token.amount}</td>
-							<td>{token.token.slice(0, 20)}...</td>
-							<td>{token.isPaid}</td>
-							<td class="flex gap-x-1">
-								<button on:click={() => $wallet.receiveEcash(token.token)}>Claim</button>
-								<button on:click={() => handleCopy(token.token)}>Copy</button>
-							</td>
-						</tr>
-					{/each}
-					{#each spentTokens as token}
-						<tr>
-							<td>{format(token.date, dateFmt)}</td>
-							<td>{token.amount}</td>
-							<td>{token.token.slice(0, 20)}...</td>
-							<td>{token.isPaid}</td>
-							<td>
-								<button on:click={() => handleCopy(token.token)}>Copy</button>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-	</div>
+				{/each}
+			{/if}
+		</tbody>
+	</table>
 </div>

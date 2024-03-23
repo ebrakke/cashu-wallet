@@ -1,6 +1,6 @@
-import type { StorageProvider, WalletState } from "@cashu-wallet/core";
+import type { SimpleStorageProvider, WalletState } from "@cashu-wallet/core";
 
-export class MemoryStorageProvider implements StorageProvider<WalletState> {
+export class MemoryStorageProvider implements SimpleStorageProvider {
   state: WalletState;
   constructor(mintUrl: string) {
     this.state = {

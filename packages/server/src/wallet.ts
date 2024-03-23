@@ -1,7 +1,6 @@
 import { CashuWallet, CashuMint } from "@cashu/cashu-ts";
 import {
-  StorageProvider,
-  WalletState,
+  type WalletState,
   type Wallet,
   getTokenMint,
   Token,
@@ -12,21 +11,63 @@ import {
   getTokenAmount,
   getProofsFromToken,
   createLightningTransaction,
+  type SimpleStorageProvider,
+  type Poller,
+  RxPoller,
 } from "@cashu-wallet/core";
 
 export class ServerWallet implements Wallet {
   #wallet: CashuWallet;
   #mint: CashuMint;
+  #poller: Poller;
   constructor(
     public mintUrl: string,
-    public storage: StorageProvider<WalletState>
+    public storage: SimpleStorageProvider,
+    walletOpts?: { checkInterval?: number; attempts?: number }
   ) {
     this.#mint = new CashuMint(mintUrl);
     this.#wallet = new CashuWallet(this.#mint);
+    this.#poller = new RxPoller(
+      mintUrl,
+      walletOpts?.checkInterval,
+      walletOpts?.attempts
+    );
+
+    this.#poller.spentNotifier$.subscribe(async (transactions) => {
+      const currentState = await this.storage.get();
+      if (!currentState) throw new Error("No wallet state found");
+      const newTransactions = currentState.transactions;
+      transactions.forEach((t) => {
+        newTransactions[t.token].isPaid = true;
+      });
+      this.storage.set({
+        ...currentState,
+        transactions: {
+          ...currentState.transactions,
+          ...newTransactions,
+        },
+      });
+    });
+
+    this.#poller.paidNotifier$.subscribe(async ([transaction, proofs]) => {
+      const currentState = await this.storage.get();
+      if (!currentState) throw new Error("No wallet state found");
+      const newTransactions = currentState.transactions;
+      newTransactions[transaction.pr].isPaid = true;
+      this.storage.set({
+        ...currentState,
+        transactions: {
+          ...currentState.transactions,
+          ...newTransactions,
+        },
+        proofs: [...currentState.proofs, ...proofs],
+      });
+    });
   }
 
   async receiveEcash(token: string) {
     const currentState = await this.storage.get();
+    if (!currentState) throw new Error("No wallet state found");
     const decodedToken = getDecodedToken(token);
     const mintUrl = getTokenMint(decodedToken);
     if (mintUrl !== this.mintUrl) {
@@ -35,7 +76,7 @@ export class ServerWallet implements Wallet {
     const response = await this.#wallet.receive(token);
     const proofs = response.token.token.map((t) => t.proofs).flat();
     this.storage.set({
-      ...currentState!,
+      ...currentState,
       proofs: [...currentState!.proofs, ...proofs],
     });
   }

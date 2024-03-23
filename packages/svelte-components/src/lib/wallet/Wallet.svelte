@@ -1,72 +1,97 @@
 <script lang="ts">
-	import { getDecodedToken, getTokenMint } from '@cashu-wallet/core';
-	import type { WalletStore } from '@cashu-wallet/svelte';
-	import ScanCode from './ScanCode.svelte';
-	import Send from './Send.svelte';
-	import Receive from './Receive.svelte';
+	import ReceiveLightning from './ReceiveLightning.svelte';
+	import Bolt from '$lib/icons/Bolt.svelte';
+	import Cash from '$lib/icons/Cash.svelte';
+	import ReceiveEcash from './ReceiveEcash.svelte';
+	import { createAppState } from './state.js';
+	import { setContext } from 'svelte';
+	import Home from './Home.svelte';
+	import SendLightning from './SendLightning.svelte';
+	import SendEcash from './SendEcash.svelte';
 	import History from './History.svelte';
-	export let wallet: WalletStore;
-	let page: 'home' | 'receive' | 'send' | 'scan' | 'history' = 'home';
-	let state = $wallet.state$;
-	$: pending = $state
-		? Object.values($state.transactions).filter((ts) => ts.isPaid === false).length
-		: 0;
 
-	const handleScan = async (result: string) => {
-		if (result.startsWith('cashu')) {
-			const t = getDecodedToken(result);
-			if (getTokenMint(t) !== $wallet.mintUrl) {
-				alert(`Token mint ${getTokenMint(t)} does not match wallet mint ${$wallet.mintUrl}`);
-				return;
-			}
-			await $wallet.receiveEcash(result);
-		} else if (result.toLowerCase().startsWith('ln')) {
-			await $wallet.sendLightning(result);
-		}
-		page = 'home';
-	};
+	export let mintUrl: string;
+	export let id: string;
+
+	const appState = createAppState(id, mintUrl);
+	const { wallet, mode, page } = appState;
+	$: state = $wallet?.state$;
+
+	$: pending = $state ? Object.values($state.transactions).filter((tx) => !tx.isPaid).length : 0;
+	setContext('appState', appState);
 </script>
 
 {#if $state}
-	<div class="flex flex-col items-center">
-		<div class="flex flex-col gap-y-1 items-center">
-			<div class="flex flex-col items-center gap-y-1">
-				<p class="text-xs">{$wallet.mintUrl}</p>
-				{#if page === 'history'}
-					<button class="btn" on:click={() => (page = 'home')}>Back</button>
-				{:else}
-					<button class="btn" on:click={() => (page = 'history')}
-						>History {pending > 0 ? `(${pending})` : ''}</button
-					>
+	<div class="flex flex-col items-center gap-y-8">
+		<div class="flex w-full justify-between">
+			<button class="btn btn-sm">Mints</button>
+			<button class="btn btn-sm" on:click={() => ($page = 'home')}>Home</button>
+			<button class="btn btn-sm" on:click={() => ($page = 'history')}
+				>History
+				{#if pending > 0}
+					<span class="badge badge-primary">{pending}</span>
 				{/if}
-			</div>
-			<p class="text-4xl">{$state.balance}</p>
-			<p>Sats</p>
+			</button>
 		</div>
-		<div class="mt-4">
-			{#if page === 'home'}
-				<div class="flex gap-x-2">
-					<button class="btn" on:click={() => (page = 'receive')}>Receive</button>
-					<button class="btn" on:click={() => (page = 'scan')}>Scan</button>
-					<button class="btn" on:click={() => (page = 'send')}>Send</button>
-				</div>
+		<div role="tablist" class="tabs tabs-lifted w-full">
+			<button
+				role="tab"
+				class="tab flex items-center gap-x-2"
+				class:tab-active={$mode === 'lightning'}
+				on:click={() => ($mode = 'lightning')}
+			>
+				<Bolt size="sm" class="fill-yellow-400" />
+				<span>Lightning</span>
+			</button>
+			<button
+				role="tab"
+				class="tab flex items-center gap-x-2"
+				class:tab-active={$mode === 'ecash'}
+				on:click={() => ($mode = 'ecash')}><Cash size="sm" class="fill-green-400" />Ecash</button
+			>
+		</div>
+		<div class="{$mode} flex flex-col gap-y-3 w-full">
+			{#if $page === 'home'}
+				<Home />
 			{/if}
-			{#if page === 'receive'}
-				<Receive {wallet} onFinish={() => (page = 'home')} />
+			{#if $page === 'receive'}
+				<h1 class="text-xl text-center">Receive {$mode}</h1>
+				{#if $mode === 'lightning'}
+					<ReceiveLightning {wallet} onFinish={() => ($page = 'home')} />
+				{:else}
+					<ReceiveEcash {wallet} onFinish={() => ($page = 'home')} />
+				{/if}
 			{/if}
-			{#if page === 'send'}
-				<Send {wallet} onFinish={() => (page = 'home')} />
+			{#if $page === 'send'}
+				<h1 class="text-xl text-center">Send {$mode}</h1>
+				{#if $mode === 'lightning'}
+					<SendLightning {wallet} onFinish={() => ($page = 'home')} />
+				{:else}
+					<SendEcash {wallet} onFinish={() => ($page = 'home')} />
+				{/if}
 			{/if}
-			{#if page === 'scan'}
-				<div class="flex justify-center">
-					<ScanCode onCancel={() => (page = 'home')} onScan={handleScan} />
-				</div>
-			{/if}
-			{#if page === 'history'}
-				<div class="flex justify-center">
-					<History {wallet} />
-				</div>
+			{#if $page === 'history'}
+				<History />
 			{/if}
 		</div>
 	</div>
 {/if}
+
+<style>
+	:global(input[type='number']) {
+		appearance: textfield;
+		-moz-appearance: textfield;
+	}
+	:global(input[type='number']::-webkit-inner-spin-button),
+	:global(input[type='number']::-webkit-outer-spin-button) {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	:global(.lightning .btn-primary) {
+		@apply bg-yellow-400 text-black border-none;
+	}
+	:global(.ecash .btn-primary) {
+		@apply bg-green-400 text-black border-none;
+	}
+</style>
