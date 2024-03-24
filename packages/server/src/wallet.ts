@@ -1,4 +1,4 @@
-import { CashuWallet, CashuMint } from "@cashu/cashu-ts";
+import { CashuWallet, CashuMint, SendResponse } from "@cashu/cashu-ts";
 import {
   type WalletState,
   type Wallet,
@@ -75,7 +75,7 @@ export class ServerWallet implements Wallet {
     }
     const response = await this.#wallet.receive(token);
     const proofs = response.token.token.map((t) => t.proofs).flat();
-    this.storage.set({
+    await this.storage.set({
       ...currentState,
       proofs: [...currentState!.proofs, ...proofs],
     });
@@ -84,8 +84,19 @@ export class ServerWallet implements Wallet {
   async sendEcash(amount: number) {
     const currentState = await this.storage.get();
     if (!currentState) throw new Error("No wallet state found");
-    const proofs = currentState!.proofs;
-    const response = await this.#wallet.send(amount, proofs);
+    const proofs = currentState.proofs;
+    let response: SendResponse;
+    try {
+      response = await this.#wallet.send(amount, proofs);
+    } catch (e) {
+      if ((e as Error).message.includes("already spent")) {
+        await this.#reconcileProofs();
+        const newState = await this.storage.get();
+        response = await this.#wallet.send(amount, newState!.proofs);
+      } else {
+        throw e;
+      }
+    }
     await this.storage.set({
       ...currentState,
       proofs: response.returnChange,
@@ -97,6 +108,7 @@ export class ServerWallet implements Wallet {
     const transaction = createEcashTransaction({
       amount,
       token: encodedToken,
+      date: new Date(),
     });
     await this.storage.set({
       ...currentState,
@@ -116,6 +128,7 @@ export class ServerWallet implements Wallet {
       pr: invoice.pr,
       amount,
       hash: invoice.hash,
+      date: new Date(),
     });
     await this.storage.set({
       ...currentState,
@@ -176,7 +189,44 @@ export class ServerWallet implements Wallet {
     return fee;
   }
 
-  getState(): Promise<WalletState | null> {
-    return this.storage.get();
+  async getState(): Promise<WalletState | null> {
+    const state = await this.storage.get();
+    if (!state) return null;
+    return {
+      ...state,
+      balance: state?.proofs.reduce((acc, proof) => acc + proof.amount, 0),
+    };
+  }
+
+  #reconcileProofs = async () => {
+    const state = await this.storage.get();
+    if (!state) throw new Error("No wallet state found");
+    const spent = await this.#wallet.checkProofsSpent(state.proofs);
+    const secretsSpent = spent.map((s) => s.secret);
+    const newProofs = state.proofs.filter(
+      (p) => !secretsSpent.includes(p.secret)
+    );
+    await this.storage.set({
+      ...state,
+      proofs: newProofs,
+    });
+  };
+
+  static async loadFromStorage(
+    mintUrl: string,
+    storage: SimpleStorageProvider,
+    walletOpts?: { checkInterval?: number; attempts?: number }
+  ): Promise<ServerWallet> {
+    const state = await storage.get();
+    if (!state) {
+      await storage.set({
+        mintUrl,
+        balance: 0,
+        proofs: [],
+        transactions: {},
+      });
+    }
+    const wallet = new ServerWallet(mintUrl, storage, walletOpts);
+    return wallet;
   }
 }

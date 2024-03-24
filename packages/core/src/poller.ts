@@ -14,7 +14,6 @@ import {
   tap,
   defer,
   concat,
-  from,
 } from "rxjs";
 import { EcashTransaction, LightningTransaction } from "./transaction";
 import { Proof } from "./proof";
@@ -107,13 +106,14 @@ export class RxPoller implements Poller {
   #createEcashChecker() {
     const checkTrigger$ = this.#check$$.pipe(map(() => this.#ecash));
     return merge(this.#ecash$$, checkTrigger$).pipe(
-      filter((ecash) => ecash.length > 0),
-      switchMap((ecash) => {
+      filter(() => this.#ecash.length > 0),
+      switchMap(() => {
         return concat(
           interval(0).pipe(take(1)),
           interval(this.checkInterval),
         ).pipe(
-          switchMap(async () => this.#checkEcash(ecash)),
+          filter(() => this.#ecash.length > 0),
+          switchMap(async () => this.#checkEcash(this.#ecash)),
           take(this.attempts),
           filter((p) => p.length > 0),
         );

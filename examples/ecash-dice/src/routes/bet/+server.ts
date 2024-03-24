@@ -8,7 +8,11 @@ import { error, json, type RequestHandler } from "@sveltejs/kit";
 
 export const POST: RequestHandler = async ({ request }) => {
   const wallet = await getOrCreateServerWallet();
-  if (wallet.state.balance === 0) {
+  const state = await wallet.getState();
+  if (!state) {
+    return error(500, "Server wallet state not found");
+  }
+  if (state.balance === 0) {
     return error(500, "Server wallet is empty");
   }
   const { token } = (await request.json()) as {
@@ -26,7 +30,7 @@ export const POST: RequestHandler = async ({ request }) => {
     );
   }
   const betAmount = getTokenAmount(getDecodedToken(token));
-  if (betAmount > wallet.state.balance * 2) {
+  if (betAmount > state.balance * 2) {
     return error(500, "Insufficient Server funds");
   }
   if (betAmount > 100) {
@@ -34,13 +38,15 @@ export const POST: RequestHandler = async ({ request }) => {
   }
   // Claim token for server wallet
   try {
-    const balance = wallet.state.balance;
+    const balance = state.balance;
     await wallet.receiveEcash(token);
-    const amountLessFees = wallet.state.balance - balance;
+    const newState = await wallet.getState();
+    const amountLessFees = newState!.balance - balance;
     const serverRoll = Math.floor(Math.random() * 6) + 1;
     const clientRoll = Math.floor(Math.random() * 6) + 1;
     if (serverRoll < clientRoll) {
       const winAmount = amountLessFees * 2;
+      console.log("Win amount: ", winAmount);
       const token = await wallet.sendEcash(winAmount);
       return json({ win: winAmount, token, serverRoll, clientRoll });
     }

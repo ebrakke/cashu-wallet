@@ -5,7 +5,7 @@
 	$: state = $wallet?.state$;
 </script>
 
-<div>
+<div class="overflow-x-auto h-48 w-full">
 	<table class="table">
 		<thead>
 			<tr>

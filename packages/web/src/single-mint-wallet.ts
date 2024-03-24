@@ -138,6 +138,7 @@ export class SingleMintWallet implements Wallet {
       pr: response.pr,
       amount,
       hash: response.hash,
+      date: new Date(),
     });
     this.#state$$.next({
       ...this.state,
@@ -169,6 +170,7 @@ export class SingleMintWallet implements Wallet {
     const transaction = createEcashTransaction({
       amount,
       token: encodedToken,
+      date: new Date(),
     });
     this.#state$$.next({
       ...this.state,

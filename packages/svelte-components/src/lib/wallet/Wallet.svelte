@@ -13,9 +13,9 @@
 	import ScanCode from './ScanCode.svelte';
 	import type { WalletStore } from '@cashu-wallet/svelte';
 
-	export let mintUrl: string | undefined;
-	export let id: string | undefined;
-	export let walletStore: WalletStore | undefined;
+	export let mintUrl: string | undefined = undefined;
+	export let id: string | undefined = undefined;
+	export let walletStore: WalletStore | undefined = undefined;
 
 	const appState = walletStore
 		? createAppStateWithWallet(walletStore)
