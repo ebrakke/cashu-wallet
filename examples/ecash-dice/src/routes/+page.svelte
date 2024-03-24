@@ -2,7 +2,8 @@
   import { Wallet } from "@cashu-wallet/svelte-components";
   import { createWalletStore } from "@cashu-wallet/svelte";
   import { onMount } from "svelte";
-  const wallet = createWalletStore("localhost", "http://localhost:3338");
+  import { PUBLIC_MINT_ID, PUBLIC_MINT_URL } from "$env/static/public";
+  const wallet = createWalletStore(PUBLIC_MINT_ID, PUBLIC_MINT_URL);
   type Result = {
     serverRoll: number;
     clientRoll: number;
