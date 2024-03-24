@@ -24,3 +24,5 @@
 </Template>
 
 <Story name="Local" args={{ id: 'local', mintUrl: 'http://localhost:3338' }} />
+<Story name="Test Nut" args={{ id: 'test-nut', mintUrl: 'https://testnut.cashu.space' }} />
+<Story name="Brakke Mint" args={{ id: 'Brakke', mintUrl: 'https://mint.brakke.cc' }} />

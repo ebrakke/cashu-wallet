@@ -71,9 +71,9 @@
 			</div>
 			<div class="form-control">
 				<label class="label cursor-pointer">
-					<span class="label-text">Static</span>
+					<span class="label-text mr-1">Static</span>
 					<input type="checkbox" class="toggle" bind:checked={qrTypeAnimated} />
-					<span class="label-text">Animated</span>
+					<span class="label-text ml-1">Animated</span>
 				</label>
 			</div>
 			{#if qrTypeAnimated}

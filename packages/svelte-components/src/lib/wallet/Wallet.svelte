@@ -9,6 +9,8 @@
 	import SendLightning from './SendLightning.svelte';
 	import SendEcash from './SendEcash.svelte';
 	import History from './History.svelte';
+	import Mints from './Mints.svelte';
+	import ScanCode from './ScanCode.svelte';
 
 	export let mintUrl: string;
 	export let id: string;
@@ -24,7 +26,7 @@
 {#if $state}
 	<div class="flex flex-col items-center gap-y-8">
 		<div class="flex w-full justify-between">
-			<button class="btn btn-sm">Mints</button>
+			<button class="btn btn-sm" on:click={() => ($page = 'mints')}>Mints</button>
 			<button class="btn btn-sm" on:click={() => ($page = 'home')}>Home</button>
 			<button class="btn btn-sm" on:click={() => ($page = 'history')}
 				>History
@@ -33,47 +35,54 @@
 				{/if}
 			</button>
 		</div>
-		<div role="tablist" class="tabs tabs-lifted w-full">
-			<button
-				role="tab"
-				class="tab flex items-center gap-x-2"
-				class:tab-active={$mode === 'lightning'}
-				on:click={() => ($mode = 'lightning')}
-			>
-				<Bolt size="sm" class="fill-yellow-400" />
-				<span>Lightning</span>
-			</button>
-			<button
-				role="tab"
-				class="tab flex items-center gap-x-2"
-				class:tab-active={$mode === 'ecash'}
-				on:click={() => ($mode = 'ecash')}><Cash size="sm" class="fill-green-400" />Ecash</button
-			>
-		</div>
-		<div class="{$mode} flex flex-col gap-y-3 w-full">
-			{#if $page === 'home'}
-				<Home />
-			{/if}
-			{#if $page === 'receive'}
-				<h1 class="text-xl text-center">Receive {$mode}</h1>
-				{#if $mode === 'lightning'}
-					<ReceiveLightning {wallet} onFinish={() => ($page = 'home')} />
-				{:else}
-					<ReceiveEcash {wallet} onFinish={() => ($page = 'home')} />
+		{#if $page === 'mints'}
+			<Mints />
+		{:else}
+			<div role="tablist" class="tabs tabs-lifted w-full">
+				<button
+					role="tab"
+					class="tab flex items-center gap-x-2"
+					class:tab-active={$mode === 'lightning'}
+					on:click={() => ($mode = 'lightning')}
+				>
+					<Bolt size="sm" class="fill-yellow-400" />
+					<span>Lightning</span>
+				</button>
+				<button
+					role="tab"
+					class="tab flex items-center gap-x-2"
+					class:tab-active={$mode === 'ecash'}
+					on:click={() => ($mode = 'ecash')}><Cash size="sm" class="fill-green-400" />Ecash</button
+				>
+			</div>
+			<div class="{$mode} flex flex-col gap-y-3 w-full">
+				{#if $page === 'home'}
+					<Home />
 				{/if}
-			{/if}
-			{#if $page === 'send'}
-				<h1 class="text-xl text-center">Send {$mode}</h1>
-				{#if $mode === 'lightning'}
-					<SendLightning {wallet} onFinish={() => ($page = 'home')} />
-				{:else}
-					<SendEcash {wallet} onFinish={() => ($page = 'home')} />
+				{#if $page === 'receive'}
+					<h1 class="text-xl text-center">Receive {$mode}</h1>
+					{#if $mode === 'lightning'}
+						<ReceiveLightning {wallet} onFinish={() => ($page = 'home')} />
+					{:else}
+						<ReceiveEcash {wallet} onFinish={() => ($page = 'home')} />
+					{/if}
 				{/if}
-			{/if}
-			{#if $page === 'history'}
-				<History />
-			{/if}
-		</div>
+				{#if $page === 'send'}
+					<h1 class="text-xl text-center">Send {$mode}</h1>
+					{#if $mode === 'lightning'}
+						<SendLightning {wallet} onFinish={() => ($page = 'home')} />
+					{:else}
+						<SendEcash {wallet} onFinish={() => ($page = 'home')} />
+					{/if}
+				{/if}
+				{#if $page === 'history'}
+					<History />
+				{/if}
+				{#if $page === 'scan'}
+					<ScanCode onCancel={() => ($page = 'home')} />
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/if}
 

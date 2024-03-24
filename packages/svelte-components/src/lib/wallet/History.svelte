@@ -13,13 +13,24 @@
 
 	$: ecash = transactions.filter(isEcashTransaction);
 
+	const claimAllPending = async () => {
+		const pendingCash = ecash.filter((tx) => !tx.isPaid);
+		await Promise.all(pendingCash.map((tx) => $wallet.receiveEcash(tx.token)));
+		$wallet.checkPendingTransactions();
+	};
+
 	const handleCopy = (text: string) => {
 		navigator.clipboard.writeText(text);
 	};
 </script>
 
 <div class="overflow-x-auto h-96 w-full">
-	<button on:click={() => $wallet.checkPendingTransactions()}>Refresh</button>
+	<div class="flex justify-between mb-4">
+		<button class="btn btn-sm" on:click={() => $wallet.checkPendingTransactions()}>Refresh</button>
+		{#if $mode === 'ecash'}
+			<button on:click={claimAllPending} class="btn btn-sm">Claim All Ecash</button>
+		{/if}
+	</div>
 	<table class="table table-xs table-pin-rows table-pin-cols">
 		<thead>
 			<tr>

@@ -13,6 +13,8 @@ import {
   mergeMap,
   tap,
   defer,
+  concat,
+  from,
 } from "rxjs";
 import { EcashTransaction, LightningTransaction } from "./transaction";
 import { Proof } from "./proof";
@@ -92,7 +94,6 @@ export class RxPoller implements Poller {
 
   #createLightningChecker() {
     return this.#lightning$$.pipe(
-      tap((t) => console.log("checking", t)),
       mergeMap((t) =>
         defer(() => this.#wallet.requestTokens(t.amount, t.hash)).pipe(
           tap((r) => console.log("got proofs", r)),
@@ -106,26 +107,30 @@ export class RxPoller implements Poller {
   #createEcashChecker() {
     const checkTrigger$ = this.#check$$.pipe(map(() => this.#ecash));
     return merge(this.#ecash$$, checkTrigger$).pipe(
+      filter((ecash) => ecash.length > 0),
       switchMap((ecash) => {
-        return interval(this.checkInterval).pipe(
-          filter(() => ecash.length > 0),
-          switchMap(async () => {
-            const proofsToCheck = ecash.flatMap((t) =>
-              getProofsFromToken(getDecodedToken(t.token)),
-            );
-            const spentProofs =
-              await this.#wallet.checkProofsSpent(proofsToCheck);
-            const proofSecrets = spentProofs.map((p) => p.secret);
-            return ecash.filter((t) =>
-              getProofsFromToken(getDecodedToken(t.token)).some((pp) =>
-                proofSecrets.includes(pp.secret),
-              ),
-            );
-          }),
+        return concat(
+          interval(0).pipe(take(1)),
+          interval(this.checkInterval),
+        ).pipe(
+          switchMap(async () => this.#checkEcash(ecash)),
           take(this.attempts),
           filter((p) => p.length > 0),
         );
       }),
+    );
+  }
+
+  async #checkEcash(ecash: EcashTransaction[]) {
+    const proofsToCheck = ecash.flatMap((t) =>
+      getProofsFromToken(getDecodedToken(t.token)),
+    );
+    const spentProofs = await this.#wallet.checkProofsSpent(proofsToCheck);
+    const proofSecrets = spentProofs.map((p) => p.secret);
+    return ecash.filter((t) =>
+      getProofsFromToken(getDecodedToken(t.token)).some((pp) =>
+        proofSecrets.includes(pp.secret),
+      ),
     );
   }
 
