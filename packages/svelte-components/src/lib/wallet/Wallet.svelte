@@ -3,7 +3,7 @@
 	import Bolt from '$lib/icons/Bolt.svelte';
 	import Cash from '$lib/icons/Cash.svelte';
 	import ReceiveEcash from './ReceiveEcash.svelte';
-	import { createAppState } from './state.js';
+	import { createAppState, createAppStateWithWallet } from './state.js';
 	import { setContext } from 'svelte';
 	import Home from './Home.svelte';
 	import SendLightning from './SendLightning.svelte';
@@ -11,11 +11,15 @@
 	import History from './History.svelte';
 	import Mints from './Mints.svelte';
 	import ScanCode from './ScanCode.svelte';
+	import type { WalletStore } from '@cashu-wallet/svelte';
 
-	export let mintUrl: string;
-	export let id: string;
+	export let mintUrl: string | undefined;
+	export let id: string | undefined;
+	export let walletStore: WalletStore | undefined;
 
-	const appState = createAppState(id, mintUrl);
+	const appState = walletStore
+		? createAppStateWithWallet(walletStore)
+		: createAppState(id!, mintUrl!);
 	const { wallet, mode, page } = appState;
 	$: state = $wallet?.state$;
 
